@@ -1,0 +1,489 @@
+import React, { useContext, useState } from 'react';
+import { AppContext } from './Root';
+import { useNavigate } from '../lib/routerCompat';
+import { Settings as SettingsIcon, User, Bell, Lock, Palette, Database, Users, Trash2, Save, Download, Upload, X, Sparkles, ClipboardList } from 'lucide-react';
+import { projectId, publicAnonKey } from '../../utils/supabase/info';
+import { supabase } from './supabaseClient';
+
+const LazySOPModal = React.lazy(() =>
+  import('./SOPModal').then((module) => ({ default: module.SOPModal })),
+);
+
+export function Settings() {
+  const ctx = useContext(AppContext);
+  const navigate = useNavigate();
+  const userName = ctx?.userName || '';
+  const userEmail = ctx?.userEmail || '';
+  const isAdmin = ctx?.isAdmin || false;
+  const teamMembers = ctx?.teamMembers || [];
+  const [activeSection, setActiveSection] = useState('profile');
+  const [isResetting, setIsResetting] = useState(false);
+  const [isSOPOpen, setIsSOPOpen] = useState(false);
+  
+  // Password change modal state
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const handleResetData = async () => {
+    if (!window.confirm('Are you sure you want to reset ALL data? This will permanently delete all tasks and success logs. This action cannot be undone.')) return;
+    if (!window.confirm('This is your last chance to cancel. Press OK to confirm full data reset.')) return;
+    setIsResetting(true);
+    try {
+      const response = await fetch(`https://${projectId}.supabase.co/functions/v1/make-server-b626472b/reset-data`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${publicAnonKey}` }
+      });
+      if (response.ok) {
+        alert('Data reset successfully!');
+      } else {
+        console.error('Reset data error:', await response.json());
+        alert('Failed to reset data.');
+      }
+    } catch (error) {
+      console.error('Error resetting data:', error);
+      alert('Failed to reset data.');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const sections = [
+    { id: 'profile', label: 'Profile', icon: User },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'security', label: 'Security', icon: Lock },
+    { id: 'appearance', label: 'Appearance', icon: Palette },
+    ...(isAdmin ? [
+      { id: 'team', label: 'Team Management', icon: Users },
+      { id: 'data', label: 'Data Management', icon: Database }
+    ] : []),
+  ];
+
+  return (
+    <div className="p-8 space-y-6 max-w-7xl mx-auto">
+      <div>
+        <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Settings</h1>
+        <p className="text-zinc-500 font-medium">Manage your account and application preferences</p>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Sidebar Navigation */}
+        <div className="lg:col-span-1">
+          <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-1">
+            {sections.map(section => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left ${
+                  activeSection === section.id
+                    ? 'bg-black dark:bg-white text-white dark:text-black shadow-lg'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                }`}
+              >
+                <section.icon className="w-5 h-5" />
+                <span className="text-sm font-bold">{section.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="lg:col-span-3">
+          <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-800 p-8">
+            {activeSection === 'profile' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Profile Settings</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Manage your personal information</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-black uppercase text-zinc-400 mb-2 block">Display Name</label>
+                    <input 
+                      type="text" 
+                      value={userName} 
+                      readOnly
+                      className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl font-medium text-zinc-800 dark:text-zinc-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-black uppercase text-zinc-400 mb-2 block">Email Address</label>
+                    <input 
+                      type="email" 
+                      value={userEmail} 
+                      readOnly
+                      className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl font-medium text-zinc-800 dark:text-zinc-200"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-black uppercase text-zinc-400 mb-2 block">Role</label>
+                    <div className={`w-fit px-4 py-2 rounded-xl font-bold text-sm ${
+                      isAdmin ? 'bg-black dark:bg-white text-white dark:text-black' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300'
+                    }`}>
+                      {isAdmin ? 'Administrator' : 'Team Member'}
+                    </div>
+                  </div>
+                  
+                  {/* Platform Demo Card */}
+                  <div className="p-6 bg-gradient-to-br from-zinc-100 to-zinc-50 dark:from-zinc-900 dark:to-zinc-950 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Sparkles className="w-6 h-6 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Platform Demo</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          Watch the interactive walkthrough to learn about all features
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => navigate('/demo')}
+                      className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      View Demo
+                    </button>
+                  </div>
+
+                  {/* SOP & Roles Card */}
+                  <div className="p-6 bg-gradient-to-br from-purple-100 to-purple-50 dark:from-purple-950/30 dark:to-purple-950/10 border-2 border-purple-200 dark:border-purple-900 rounded-2xl">
+                    <div className="flex items-start gap-3 mb-4">
+                      <ClipboardList className="w-6 h-6 text-purple-700 dark:text-purple-400 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">📋 SOP & Roles</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                          View comprehensive role descriptions and standard operating procedures for all departments
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setIsSOPOpen(true)}
+                      className="px-6 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center gap-2"
+                    >
+                      <ClipboardList className="w-4 h-4" />
+                      Open SOP & Roles
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SOP Modal */}
+            {isSOPOpen && (
+              <React.Suspense fallback={null}>
+                <LazySOPModal isOpen={isSOPOpen} onClose={() => setIsSOPOpen(false)} />
+              </React.Suspense>
+            )}
+
+            {activeSection === 'notifications' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Notification Preferences</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Choose how you want to be notified</p>
+                </div>
+                <div className="space-y-4">
+                  {[
+                    { title: 'Task Assignments', desc: 'Get notified when tasks are assigned to you' },
+                    { title: 'Success Logs', desc: 'Notifications for team successes' },
+                    { title: 'SLA Alerts', desc: 'Reminders for approaching deadlines' },
+                  ].map(item => (
+                    <div key={item.title} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl">
+                      <div>
+                        <div className="font-bold text-zinc-800 dark:text-zinc-100">{item.title}</div>
+                        <div className="text-sm text-zinc-500 dark:text-zinc-400">{item.desc}</div>
+                      </div>
+                      <input type="checkbox" defaultChecked className="w-5 h-5 accent-black dark:accent-white" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'security' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Security Settings</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Manage your account security</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border-2 border-zinc-200 dark:border-zinc-800">
+                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-2">Password</h3>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">Change your account password</p>
+                    <button 
+                      onClick={() => setShowPasswordModal(true)}
+                      className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all"
+                    >
+                      Change Password
+                    </button>
+                  </div>
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border-2 border-zinc-200 dark:border-zinc-800">
+                    <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-2">Two-Factor Authentication</h3>
+                    <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">Add an extra layer of security to your account</p>
+                    <button className="px-6 py-3 bg-white dark:bg-zinc-800 border-2 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-all">
+                      Enable 2FA
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'appearance' && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Appearance</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Customize how the app looks</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-black uppercase text-zinc-400 mb-3 block">Theme</label>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-4">Use the theme toggle in the top bar to switch between light and dark mode.</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="p-4 bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-700 rounded-2xl text-left">
+                        <div className="w-full h-20 bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-xl mb-3"></div>
+                        <div className="font-bold text-zinc-800 dark:text-zinc-100">Light</div>
+                        <div className="text-xs text-zinc-500">Clean & minimal</div>
+                      </div>
+                      <div className="p-4 bg-white dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-700 rounded-2xl text-left">
+                        <div className="w-full h-20 bg-gradient-to-br from-zinc-800 to-zinc-950 rounded-xl mb-3"></div>
+                        <div className="font-bold text-zinc-800 dark:text-zinc-100">Dark</div>
+                        <div className="text-xs text-zinc-500">Easy on the eyes</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'team' && isAdmin && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Team Management</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Manage team members and permissions</p>
+                </div>
+                <div className="space-y-3">
+                  {teamMembers && teamMembers.length > 0 ? (
+                    teamMembers.map((member: any, idx: number) => (
+                      <div key={idx} className="flex items-center justify-between p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-black dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-black font-black text-sm">
+                            {member.name?.substring(0, 2).toUpperCase() || 'TM'}
+                          </div>
+                          <div>
+                            <div className="font-bold text-zinc-800 dark:text-zinc-100">{member.name || 'Team Member'}</div>
+                            <div className="text-sm text-zinc-500 dark:text-zinc-400">{member.email || 'email@example.com'}</div>
+                          </div>
+                        </div>
+                        <div className="text-xs font-bold px-3 py-1 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg">
+                          {member.role || 'Member'}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-zinc-400">
+                      <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm font-medium">No team members yet</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {activeSection === 'data' && isAdmin && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Data Management</h2>
+                  <p className="text-zinc-600 dark:text-zinc-400">Manage application data and backups</p>
+                </div>
+                <div className="space-y-4">
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Download className="w-6 h-6 text-zinc-600 dark:text-zinc-400 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Export Data</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Download all your data for backup or migration</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => navigate('/data-export')}
+                      className="px-6 py-3 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black rounded-xl font-bold hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-all flex items-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Go to Data Export
+                    </button>
+                  </div>
+                  
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-200 dark:border-zinc-800 rounded-2xl">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Upload className="w-6 h-6 text-zinc-600 dark:text-zinc-400 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Import Data</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400">Restore data from a previous export</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => navigate('/data-import')}
+                      className="px-6 py-3 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black rounded-xl font-bold hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-all flex items-center gap-2"
+                    >
+                      <Upload className="w-4 h-4" />
+                      Go to Data Import
+                    </button>
+                  </div>
+
+                  <div className="p-6 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-300 dark:border-zinc-700 rounded-2xl">
+                    <div className="flex items-start gap-3 mb-4">
+                      <Trash2 className="w-6 h-6 text-zinc-700 dark:text-zinc-300 flex-shrink-0" />
+                      <div>
+                        <h3 className="font-bold text-zinc-800 dark:text-zinc-100 mb-1">Reset All Data</h3>
+                        <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Permanently delete all tasks and success logs. This action cannot be undone.</p>
+                        <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300 bg-zinc-200 dark:bg-zinc-700 px-3 py-1 rounded-lg inline-block">Danger Zone</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={handleResetData}
+                      disabled={isResetting}
+                      className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isResetting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin"></div>
+                          Resetting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="w-4 h-4" />
+                          Reset All Data
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Password Change Modal */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl border border-zinc-200 dark:border-zinc-800 p-8 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-black text-zinc-800 dark:text-zinc-100">Change Password</h2>
+              <button 
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                }}
+                className="text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-300 p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-all"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-black uppercase text-zinc-400 mb-2 block">New Password</label>
+                <input 
+                  type="password" 
+                  value={newPassword} 
+                  onChange={(e) => {
+                    setNewPassword(e.target.value);
+                    setPasswordError('');
+                  }}
+                  placeholder="Enter new password"
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl font-medium text-zinc-800 dark:text-zinc-200 focus:border-zinc-300 dark:focus:border-zinc-700 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-black uppercase text-zinc-400 mb-2 block">Confirm New Password</label>
+                <input 
+                  type="password" 
+                  value={confirmPassword} 
+                  onChange={(e) => {
+                    setConfirmPassword(e.target.value);
+                    setPasswordError('');
+                  }}
+                  placeholder="Confirm new password"
+                  className="w-full px-4 py-3 bg-zinc-50 dark:bg-zinc-900 border-2 border-zinc-100 dark:border-zinc-800 rounded-2xl font-medium text-zinc-800 dark:text-zinc-200 focus:border-zinc-300 dark:focus:border-zinc-700 outline-none transition-colors"
+                />
+              </div>
+              {passwordError && (
+                <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-2xl">
+                  <p className="text-sm font-medium text-red-600 dark:text-red-400">{passwordError}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button 
+                onClick={() => {
+                  setShowPasswordModal(false);
+                  setCurrentPassword('');
+                  setNewPassword('');
+                  setConfirmPassword('');
+                  setPasswordError('');
+                }}
+                disabled={isChangingPassword}
+                className="flex-1 px-6 py-3 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl font-bold hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={async () => {
+                  if (!newPassword || !confirmPassword) {
+                    setPasswordError('Please fill in all fields');
+                    return;
+                  }
+                  if (newPassword.length < 6) {
+                    setPasswordError('Password must be at least 6 characters');
+                    return;
+                  }
+                  if (newPassword !== confirmPassword) {
+                    setPasswordError('Passwords do not match');
+                    return;
+                  }
+                  setIsChangingPassword(true);
+                  setPasswordError('');
+                  try {
+                    const { error } = await supabase.auth.updateUser({
+                      password: newPassword
+                    });
+                    if (error) {
+                      setPasswordError(error.message);
+                    } else {
+                      alert('Password changed successfully!');
+                      setShowPasswordModal(false);
+                      setCurrentPassword('');
+                      setNewPassword('');
+                      setConfirmPassword('');
+                      setPasswordError('');
+                    }
+                  } catch (error: any) {
+                    console.error('Error changing password:', error);
+                    setPasswordError(error.message || 'Failed to change password');
+                  } finally {
+                    setIsChangingPassword(false);
+                  }
+                }}
+                disabled={isChangingPassword}
+                className="flex-1 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {isChangingPassword ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white dark:border-black border-t-transparent rounded-full animate-spin"></div>
+                    Changing...
+                  </>
+                ) : (
+                  'Change Password'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
