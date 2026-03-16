@@ -1,0 +1,754 @@
+Build a production-ready internal web platform called “Trygc OPS Command” (also acceptable label: “TryGC Dashboard”)
+  for managing campaign operations, team execution, community workflows, coverage tracking, updates, reporting, and
+  admin configuration.
+
+  This is not a generic task app. It is a role-based operations command center for a campaign/influencer marketing
+  operations team. It must feel like a premium internal dashboard with bold monochrome styling, strong hierarchy,
+  rounded cards, fast interactions, admin/member role separation, and full CRUD behavior across all workspace modules.
+
+  Core product goal:
+  Create one unified workspace where admins and members can log in, manage campaigns and subtasks, track coverage and
+  community operations, log mistakes and wins, organize messy updates into professional summaries, create shift
+  handovers, manage shared quick-link widgets, export/import data, and control feature access per user.
+
+  Preferred implementation defaults if no stack is provided:
+  - Frontend: React + TypeScript
+  - Styling: Tailwind CSS + component primitives
+  - Routing: client-side SPA routing
+  - Charts: Recharts or equivalent
+  - Backend: Supabase (Auth + database + storage + edge/server functions) or equivalent
+  - State/data fetching: React Query or equivalent
+  - File parsing: XLSX support for imports
+  - Must support desktop and mobile
+  - Must support light and dark mode
+  - Must be modular and maintainable, not a single giant file
+
+  Visual direction:
+  - Primary aesthetic: black, white, zinc/gray, minimal but high-contrast
+  - Large rounded cards and rounded buttons
+  - Bold typography and dashboard polish
+  - Subtle gradients and restrained motion
+  - Serious operations-tool feel, not playful consumer SaaS
+  - No purple-heavy default theme
+  - Responsive sidebar on desktop, bottom nav on mobile
+  - Top bar with sync state, quick actions, user menu, theme toggle, refresh, and shortcuts
+  - Command palette opened by Ctrl/Cmd + K
+
+  Authentication and onboarding:
+  - Email/password sign-in and sign-up
+  - Persist sessions
+  - After login, auto-register or auto-provision user profile if needed
+  - Roles:
+    - owner
+    - admin
+    - member
+  - Owner has permanent full access and cannot be downgraded by others
+  - First-time users must go through an interactive platform demo/walkthrough before entering the workspace
+  - After demo completion:
+    - admins land on the main dashboard
+    - members land on the personal dashboard
+
+  Global workspace behavior:
+  - Auto-save changes with debounce
+  - Show sync states such as idle, loading, online, syncing, error
+  - Keep local fallback storage for selected workspace modules so recent changes remain visible even if backend sync
+  fails
+  - Merge server and local records by latest updatedAt
+  - Refresh workspace data from backend on demand
+  - Feature-based navigation: each user only sees enabled modules
+  - Some features must always remain available:
+    - Coverage
+    - Widgets
+  - Provide lazy-loaded routes for major screens
+  - Provide loading and error states
+  - Provide search, filters, date range filters, and empty states on most data-heavy screens
+
+  Main routes/modules to build:
+  1. Dashboard
+  2. My Dashboard / Personal Dashboard
+  3. Community Team
+  4. Coverage
+  5. Widgets
+  6. All Tasks
+  7. Campaigns
+  8. Campaign Intake
+  9. Mistake Logger
+  10. Update Organizer
+  11. Handover
+  12. Function Kanban
+  13. Team Analytics
+  14. Member Views
+  15. Updates feed
+  16. Reports
+  17. Archive
+  18. User Management
+  19. Data Export
+  20. Data Import
+  21. Settings
+  22. Configuration Manager
+  23. Platform Demo
+  24. Login
+
+  Role behavior:
+  - Admins can access all major operations and admin modules
+  - Members mainly access:
+    - My Dashboard
+    - Community Team
+    - Coverage
+    - Widgets
+    - Campaigns
+    - Mistakes
+    - Update Organizer
+    - Handover
+    - Updates
+    - Settings
+  - Admin-only pages:
+    - All Tasks
+    - Function Kanban
+    - Team Analytics
+    - Member Views
+    - Reports
+    - Archive
+    - User Management
+    - Configuration
+    - Campaign Intake (preferred admin-only)
+    - Data Export / Import
+  - Feature gating must be enforced in UI and navigation
+
+  Required global layout:
+  - Sidebar with grouped navigation sections:
+    - Core
+    - Operations
+    - Insights
+    - Admin
+  - Top bar:
+    - sync status
+    - refresh workspace button
+    - quick add update
+    - admin-only XLSX upload shortcut
+    - command palette trigger
+    - user info
+    - logout
+  - Mobile bottom nav
+  - Floating admin upload button for XLSX import
+  - Global toaster notifications
+
+  Detailed module requirements:
+
+  1. Dashboard
+  - Welcome banner using the logged-in user name
+  - Date range filter
+  - KPI cards:
+    - total tasks
+    - completed
+    - in progress
+    - overdue
+  - Achievement progress section:
+    - total CON
+    - total target
+    - achievement rate
+  - Quick actions:
+    - view all tasks or personal dashboard
+    - function kanban
+    - team analytics
+    - member views
+    - updates feed
+  - Recent tasks list
+  - For admins: top performers leaderboard
+  - For members: recent successes list
+
+  2. Personal Dashboard
+  - Personalized dashboard for one member
+  - Tabs:
+    - My Overview
+    - My Tasks
+    - My Insights
+  - Rank progression / gamification widget using football-legend style ranks
+  - Stats:
+    - task completion
+    - in progress
+    - pending
+    - blocked
+    - today CON
+    - SLA rate
+    - overdue
+  - Charts:
+    - task status pie
+    - daily activity area chart
+    - campaign progress
+  - Urgent tasks list
+  - My recorded wins
+  - Admins must be able to open member views and see this dashboard for any selected member
+
+  3. Campaigns
+  - Core campaign operations matrix
+  - Each campaign contains:
+    - name
+    - client
+    - owner
+    - market
+    - priority
+    - status
+    - current phase
+    - start/end date
+    - budget
+    - notes
+    - team plans
+  - Every campaign must carry editable subtasks for every operations team
+  - Teams should include equivalent operational functions such as:
+    - Inbound
+    - Outbound
+    - WhatsApp Live Chat
+    - Coverage
+    - Coordination
+    - Quality
+    - Acquisition
+    - Post-Campaign
+    - Key Accounts
+    - Analytics
+  - Campaign cards must be expandable
+  - Each team lane shows:
+    - team summary
+    - progress
+    - tasks
+  - Each task must support:
+    - title
+    - description
+    - criteria
+    - methodology
+    - status
+    - priority
+    - assignment mode
+    - assigned team or person
+    - due date
+    - notes
+  - Support:
+    - create campaign
+    - edit campaign
+    - delete campaign
+    - add/edit/delete task
+    - bulk campaign upload
+  - Show cross-team completion
+  - Reassignment should trigger task assignment notifications
+
+  4. All Tasks
+  - Master registry of all campaign subtasks across all teams
+  - Search and filter by:
+    - campaign
+    - team
+    - status
+    - priority
+    - date range
+  - Inline task table showing:
+    - campaign
+    - team
+    - task
+    - assignment
+    - status
+    - priority
+    - due date
+    - actions
+  - Create/edit/delete tasks from this screen
+
+  5. Campaign Intake
+  - Intake form for upcoming or ongoing campaigns before full operations setup
+  - Fields:
+    - campaign name
+    - client
+    - owner
+    - market
+    - priority
+    - stage (Upcoming/Ongoing)
+    - start date
+    - end date
+    - budget
+    - quick summary
+    - notes
+  - Submitting an intake must:
+    - create an intake record
+    - automatically sync a full campaign into the Campaigns workspace
+  - Recent intake list with statuses and linked campaign state
+
+  6. Community Team
+  - Community operations matrix by market/country
+  - Markets should include examples like:
+    - Saudi Arabia
+    - United Arab Emirates
+    - Kuwait
+    - Egypt
+  - Each market contains:
+    - manager
+    - summary
+    - country metadata
+    - community tasks
+  - Community tasks should use the same structure as campaign tasks:
+    - title
+    - description
+    - criteria
+    - methodology
+    - status
+    - priority
+    - assignee
+    - due date
+    - notes
+  - Support:
+    - assign market manager
+    - add/edit/delete task
+    - progress tracking per country
+    - search/filter by task content and status
+  - Persist this workspace separately and save with debounce
+
+  7. Coverage
+  - Editable sample coverage queue / workbook-style page
+  - Start with sample data if no coverage records exist
+  - Coverage rows must support:
+    - owner
+    - task
+    - campaign
+    - date
+    - doneAt
+    - status
+    - systemStatus
+    - auditStatus
+    - warning
+    - action
+    - appreciation
+    - notes
+    - isNote
+  - Support:
+    - add row
+    - edit row
+    - delete row
+    - reset to sample data
+    - import data
+  - Import methods:
+    - Excel
+    - CSV
+    - bulk pasted tabular text
+  - Import modes:
+    - replace
+    - append
+  - Show summary cards:
+    - actionable rows
+    - owners
+    - campaigns
+    - notes
+  - Table with pagination, filters, search, and date range filter
+
+  8. Widgets
+  - Shared quick-link widget board for important URLs
+  - Widget fields:
+    - title
+    - url
+    - description
+    - category
+    - color
+    - icon label
+    - layout (compact/wide)
+    - pinned
+    - openInNewTab
+  - Support:
+    - create
+    - edit
+    - delete
+    - pin/unpin
+    - open link
+    - search
+    - category filtering
+    - date range filtering
+  - Pinned widgets should sort first
+
+  9. Mistake Logger
+  - Log quality/execution mistakes tied to campaign tasks or team tasks
+  - Fields:
+    - task source (campaign/team)
+    - linked task
+    - responsible team/person
+    - mistake description
+    - reported by
+    - reported at
+    - resolved boolean
+    - resolved by
+    - resolved at
+  - Support:
+    - add mistake
+    - resolve mistake
+    - unresolve
+    - delete
+    - filter by team and resolution state
+    - search
+    - date range filtering
+  - Group results by team
+
+  10. Updates Feed
+  - Feed of successes/wins/updates
+  - Fields:
+    - agent
+    - type (Volume, SLA, Quality, etc.)
+    - detail
+    - date
+    - time
+    - timestamp
+  - Support:
+    - quick add from global modal
+    - edit
+    - delete
+    - search
+    - type filter
+    - date range filter
+  - Show stats:
+    - total wins
+    - contributing members
+    - average wins per member
+
+  11. Update Organizer
+  - A structured text utility that turns messy updates into professional English summaries
+  - Input: rough notes, mixed language, especially Arabic + English
+  - Must detect Arabic and translate to English before formatting
+  - Translation can use a translation API/service
+  - Parse notes into sections such as:
+    - summary
+    - completed
+    - progress
+    - blockers
+    - decisions
+    - next steps
+    - metrics
+    - notes
+  - Output templates:
+    - leadership brief
+    - daily ops update
+    - client status update
+  - Detail levels:
+    - concise
+    - standard
+    - detailed
+  - Options:
+    - translate Arabic
+    - include metrics
+    - include notes
+    - include generated timestamp
+    - include prepared by
+  - Show:
+    - parsed preview sections
+    - final output
+    - translated draft if applicable
+  - Allow:
+    - copy output
+    - save structured updates to history
+    - search saved history
+    - load prior entry
+    - delete prior entry
+    - date range filter on saved outputs
+
+  12. Handover
+  - Structured shift handover builder
+  - Fields:
+    - title
+    - shift date
+    - shift window (Morning/Evening/Night/Weekend/General)
+    - prepared by
+    - team
+    - coverage/hours
+    - health (Stable/Watch/Critical)
+    - summary
+    - completed work
+    - pending items
+    - blockers
+    - escalations
+    - next shift focus
+    - shared context
+  - Generate a share-ready broadcast summary automatically
+  - Support:
+    - save handover
+    - edit handover
+    - delete handover
+    - load prior handover
+    - copy broadcast summary
+    - date range filter
+  - Show stats:
+    - total handovers
+    - critical
+    - watch
+    - today
+
+  13. Function Kanban
+  - Admin-only
+  - Split view of tasks organized by function/team and workflow stage
+  - Kanban-style layout for operational tasks
+
+  14. Team Analytics
+  - Admin-only advanced analytics page
+  - Date range filter
+  - Use charts and summaries for:
+    - task completion
+    - success logs
+    - top performers
+    - workload
+    - output rates
+    - SLA and efficiency trends
+
+  15. Member Views
+  - Admin-only
+  - Selector to impersonate/view an individual member’s personal dashboard without changing auth identity
+
+  16. Reports
+  - Admin-only reporting area with animated stat cards and export
+  - Tabs:
+    - Overview
+    - Tasks
+    - Performance
+    - Team
+  - Date ranges:
+    - today
+    - week
+    - month
+    - all
+  - Metrics:
+    - total tasks
+    - completed
+    - completion rate
+    - CON achievement
+    - team members
+    - high priority tasks
+  - Charts:
+    - status distribution
+    - priority breakdown
+    - tasks by campaign
+    - team workload
+    - success feed activity
+    - top contributors
+  - Export CSV for overview and tasks
+
+  17. Archive
+  - Admin-only archive for completed tasks / historical records
+  - Filter/search/date range support
+  - Stats:
+    - total archived
+    - this month
+    - on time
+    - avg completion time
+  - Provide UI for restore/delete actions, even if restore is a staged action
+
+  18. User Management
+  - Admin screen, but only owner can fully manage users
+  - Owner email should be fixed and protected
+  - Must support:
+    - fetch users
+    - add user
+    - remove user
+    - change role admin/member
+    - edit display name
+    - edit team name
+    - expand each user to manage per-feature access
+    - feature presets:
+      - all features
+      - admin default
+      - member default
+      - minimal
+  - Per-user feature toggles must directly control visible navigation and access
+  - Always enforce required features like Coverage and Widgets
+  - Default feature sets:
+    - admin gets broad access
+    - member gets personal/core operational access
+
+  19. Settings
+  - Sections:
+    - profile
+    - notifications
+    - security
+    - appearance
+    - team management (admin)
+    - data management (admin)
+  - Profile should show:
+    - display name
+    - email
+    - role
+    - link to platform demo
+    - SOP & Roles modal
+  - Security:
+    - password change flow
+    - 2FA placeholder/support
+  - Data section:
+    - links to export/import pages
+    - admin data actions
+
+  20. Configuration Manager
+  - Admin-only advanced configuration console
+  - Sidebar sections:
+    - System
+    - Campaigns
+    - Team
+    - Notifications
+    - Workspace
+    - Tasks
+    - Analytics
+    - Data
+    - Feature Flags
+    - Audit Log
+    - Backups
+  - Must support:
+    - editable config forms per section
+    - save/discard pending changes
+    - export config JSON
+    - import config JSON
+    - reload config
+    - audit log view
+    - manual backups
+    - preview backup
+    - restore backup
+  - Example configurable fields:
+    - app name
+    - session timeout
+    - auto-save
+    - cache duration
+    - upload limits
+    - API rate limit
+    - primary/secondary colors
+    - maintenance mode + message
+    - campaign phases
+    - SLA timelines
+    - required fields
+    - teams
+    - escalation rules
+    - notification channels and triggers
+    - quiet hours
+    - workspace density, content width, timezone, language, permissions
+    - task statuses and priorities
+    - analytics defaults and retention
+    - data import/export limits
+    - feature flags
+
+  21. Data Export
+  - Export all workspace data to downloadable JSON
+  - Include:
+    - tasks
+    - campaigns
+    - success logs
+    - user configurations
+    - team member data
+    - other workspace modules
+
+  22. Data Import
+  - Import from a previous JSON export
+  - Warn clearly that import replaces existing data
+  - Validate file shape
+  - Show status messages
+  - Refresh workspace after successful import
+
+  23. Command Palette
+  - Open with Ctrl/Cmd + K
+  - Search pages and actions
+  - Actions include:
+    - refresh workspace
+    - log update
+    - admin XLSX upload
+    - navigate to any visible route
+  - Respect feature access
+
+  24. Platform Demo
+  - Full-screen guided walkthrough required for first-time users
+  - Separate step sets for admins and members
+  - Each step includes:
+    - title
+    - description
+    - icon
+    - key features list
+    - optional “Try this feature now”
+  - User can skip or complete demo
+  - Completion is saved in backend
+
+  25. Login
+  - Premium auth UI
+  - Sign in / sign up toggle
+  - Sign-up must create account then auto-login
+  - Clear error states and loading states
+
+  Notifications:
+  - Store task notifications
+  - Notification types may include:
+    - overdue
+    - done
+    - blocked
+    - assigned
+    - success
+  - Automatically append assignment notifications when a task’s assignee changes
+
+  Data model requirements:
+  Implement clear normalized types/entities for at least:
+  - User
+  - Campaign
+  - Team plan
+  - Task
+  - Community workspace
+  - Campaign intake
+  - Organized update
+  - Shift handover
+  - Link widget
+  - Coverage record
+  - Success log
+  - Task notification
+  - Mistake log
+  - Configuration, audit log, backup
+
+  Operational task fields should support both generic task management and ops metrics where relevant:
+  - SLA hours
+  - metricCON
+  - metricTarget
+  - metricCOV
+  - missing date / coverage type metrics if applicable
+  - start/end timestamps
+  - result summary
+  - assigned label normalization
+
+  Persistence and backend:
+  Use a real backend, not mock-only.
+  If using Supabase, implement server/API behavior equivalent to:
+  - sign up
+  - auto-register user
+  - fetch workspace data
+  - save workspace data
+  - fetch/save community team workspace
+  - mark demo complete
+  - admin config fetch/save
+  - export data
+  - import data
+  Store data so the UI is fully functional across sessions.
+  Implement local fallback persistence for selected modules when the network/backend fails.
+
+  Quality requirements:
+  - Full CRUD must work
+  - Empty states, loading states, and error states for all main modules
+  - Responsive on mobile and desktop
+  - Dark mode support
+  - Accessible keyboard navigation where practical
+  - Debounced saves and debounced search where useful
+  - Use modular components and typed utilities
+  - Avoid placeholder lorem ipsum or fake unfinished sections
+  - Include realistic seed/demo data so the app looks alive on first run
+  - Include route guards, feature gates, and admin/member restrictions
+  - Include import/export validation
+  - Include polished animations but keep the app fast
+
+  Deliverables:
+  - Full source code
+  - Database schema or migrations
+  - Seed data
+  - Auth setup
+  - Backend functions/APIs
+  - Reusable components
+  - Clear folder structure
+  - README with local setup and deployment steps
+
+  Acceptance criteria:
+  - An admin can log in, finish the demo, manage campaigns, tasks, community workflows, coverage, updates, reports,
+  users, settings, configuration, and data import/export.
+  - A member can log in, finish the demo, use their personal dashboard and approved operational tools, and is blocked
+  from admin-only screens.
+  - Feature toggles in user management immediately affect navigation and access.
+  - Campaign intake creates both an intake record and a live campaign.
+  - Update organizer can translate Arabic to English and generate structured professional output.
+  - Handover creates a share-ready summary.
+  - Coverage supports sample data plus import from file or bulk paste.
+  - Auto-save and sync states are visible and functional.
+  - The final app visually feels like a premium black/white operations command center, not a generic CRUD dashboard.

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd:*)",
+      "Bash(npm list:*)",
+      "Bash(npx vercel:*)",
+      "Read(//c/Users/Admin/AppData/Roaming/com.vercel.cli/**)",
+      "Read(//c/Users/Admin/.vercel/**)",
+      "Read(//c/Users/Admin/.config/vercel/**)",
+      "Bash(grep:*)",
+      "Bash(node:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
