@@ -13,6 +13,7 @@ import {
   Layers,
   Loader2,
   Lock,
+  MessageSquare,
   Pencil,
   Plus,
   RefreshCw,
@@ -33,6 +34,7 @@ import {
   ConfigAuditLog,
   ConfigBackup,
   ConfigCategory,
+  UpdateOrganizerConfig,
   normalizeConfiguration,
 } from '../lib/configurationService';
 import { matchesThemePreset, THEME_COLOR_PRESETS } from '../lib/appearanceOptions';
@@ -55,10 +57,11 @@ const NAV_ITEMS = [
   { id: 'audit',        label: 'Audit Log',     icon: History,   desc: 'Configuration change history' },
   { id: 'backups',      label: 'Backups',       icon: Archive,   desc: 'Create and restore config backups' },
   { id: 'overview-data', label: 'Campaign Overview Data', icon: BarChart3, desc: 'Add · edit · delete campaign rows' },
+  { id: 'updateOrganizer', label: 'Update & Handover', icon: MessageSquare, desc: 'Templates, shift windows, history limits' },
 ] as const;
 
 type NavId = (typeof NAV_ITEMS)[number]['id'];
-const CONFIG_SECTIONS: ConfigCategory[] = ['system', 'campaign', 'team', 'notification', 'workspace', 'task', 'analytics', 'data', 'feature'];
+const CONFIG_SECTIONS: ConfigCategory[] = ['system', 'campaign', 'team', 'notification', 'workspace', 'task', 'analytics', 'data', 'feature', 'updateOrganizer'];
 const CONFIG_AUTOSAVE_DELAY_MS = 500;
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
@@ -309,7 +312,7 @@ function SystemSection({ config, onChange }: { config: AppConfiguration['system'
 function CampaignSection({ config, onChange }: { config: AppConfiguration['campaign']; onChange: (k: keyof AppConfiguration['campaign'], v: unknown) => void }) {
   return (
     <>
-      <SectionHeader title="Campaign Settings" description="Configure phases, SLA timelines, and required intake fields." />
+      <SectionHeader title="Campaign Settings" description="Configure phases, SLA timelines, display behaviour, and required intake fields." />
       <SettingRow label="Campaign Phases" description="Ordered lifecycle phases for all campaigns.">
         <TagList tags={config.phases} onChange={(v) => onChange('phases', v)} />
       </SettingRow>
@@ -328,6 +331,74 @@ function CampaignSection({ config, onChange }: { config: AppConfiguration['campa
       </SettingRow>
       <SettingRow label="Auto-Archive After" description="Days since last update before auto-archiving.">
         <NumberInput value={config.autoArchiveDays} onChange={(v) => onChange('autoArchiveDays', v)} min={1} suffix="days" />
+      </SettingRow>
+      <SettingRow label="Default View" description="How campaigns are displayed by default on the Campaigns page.">
+        <SegmentedInput
+          value={config.defaultView ?? 'cards'}
+          onChange={(v) => onChange('defaultView', v)}
+          options={[
+            { value: 'cards', label: 'Cards', hint: 'Expandable rows' },
+            { value: 'list', label: 'List', hint: 'Compact table' },
+          ]}
+        />
+      </SettingRow>
+      <SettingRow label="Color-coded Progress Bars" description="Show green/amber/red progress bars based on completion rate.">
+        <Toggle checked={config.progressBarColors ?? true} onChange={(v) => onChange('progressBarColors', v)} />
+      </SettingRow>
+      <SettingRow label="Show Criteria & Methodology" description="Display the criteria and methodology fields on each campaign card.">
+        <Toggle checked={config.showCriteriaMethodology ?? true} onChange={(v) => onChange('showCriteriaMethodology', v)} />
+      </SettingRow>
+      <SettingRow label="Auto-Expand New Campaigns" description="Automatically expand a campaign card when it is first created.">
+        <Toggle checked={config.autoExpandNew ?? false} onChange={(v) => onChange('autoExpandNew', v)} />
+      </SettingRow>
+    </>
+  );
+}
+
+function UpdateOrganizerSection({ config, onChange }: { config: UpdateOrganizerConfig; onChange: (k: keyof UpdateOrganizerConfig, v: unknown) => void }) {
+  return (
+    <>
+      <SectionHeader title="Update & Handover Settings" description="Set defaults for templates, output style, shift windows, teams, and history display." />
+      <SettingRow label="Default Template" description="The output template pre-selected when the Update Organizer loads.">
+        <SegmentedInput
+          value={config.defaultTemplate}
+          onChange={(v) => onChange('defaultTemplate', v)}
+          options={[
+            { value: 'leadership', label: 'Leadership', hint: 'Management brief' },
+            { value: 'daily', label: 'Daily Ops', hint: 'Team handoff' },
+            { value: 'client', label: 'Client', hint: 'External-facing' },
+          ]}
+        />
+      </SettingRow>
+      <SettingRow label="Default Detail Level" description="How many bullet points are shown per section by default.">
+        <SegmentedInput
+          value={config.defaultDetailLevel}
+          onChange={(v) => onChange('defaultDetailLevel', v)}
+          options={[
+            { value: 'concise', label: 'Concise', hint: 'Up to 2 items' },
+            { value: 'standard', label: 'Standard', hint: 'Up to 4 items' },
+            { value: 'detailed', label: 'Detailed', hint: 'Up to 8 items' },
+          ]}
+        />
+      </SettingRow>
+      <SettingRow label="Default Output Style" description="Whether outputs are plain text or rich emoji format (for Slack/Teams/WhatsApp).">
+        <SegmentedInput
+          value={config.defaultOutputStyle}
+          onChange={(v) => onChange('defaultOutputStyle', v)}
+          options={[
+            { value: 'plain', label: 'Plain Text', hint: 'Minimal formatting' },
+            { value: 'rich', label: 'Rich Emoji', hint: 'Slack / Teams / WhatsApp' },
+          ]}
+        />
+      </SettingRow>
+      <SettingRow label="Shift Windows" description="The shift windows available in the Handover composer.">
+        <TagList tags={config.shiftWindows} onChange={(v) => onChange('shiftWindows', v)} />
+      </SettingRow>
+      <SettingRow label="Handover Teams" description="Team names available in the Handover composer.">
+        <TagList tags={config.handoverTeams} onChange={(v) => onChange('handoverTeams', v)} />
+      </SettingRow>
+      <SettingRow label="Max History Items" description="Maximum number of saved updates and handovers shown in the history panels.">
+        <NumberInput value={config.maxHistoryItems} onChange={(v) => onChange('maxHistoryItems', v)} min={10} max={500} suffix="items" />
       </SettingRow>
     </>
   );
@@ -1708,6 +1779,12 @@ function ConfigurationPage() {
                     <BackupsSection getBackups={getBackups} createManualBackup={createManualBackup} restoreBackup={restoreBackup} />
                   )}
                   {activeSection === 'overview-data' && <CampaignOverviewDataSection />}
+                  {activeSection === 'updateOrganizer' && (
+                    <UpdateOrganizerSection
+                      config={mergedSection('updateOrganizer') as UpdateOrganizerConfig}
+                      onChange={(k, v) => handleChange(k as string, v)}
+                    />
+                  )}
                 </>
               )}
             </section>

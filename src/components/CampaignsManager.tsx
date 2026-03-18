@@ -2,6 +2,7 @@ import React, { useContext, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
+  AlertTriangle,
   BriefcaseBusiness,
   ChevronDown,
   ChevronRight,
@@ -14,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import { AppContext } from './Root';
+import { useConfiguration } from '../context/ConfigurationContext';
 import { DateRangeFilter } from './DateRangeFilter';
 import type { BulkCampaign } from './CampaignBulkUpload';
 import { CampaignEditorModal } from './operations/CampaignEditorModal';
@@ -47,6 +49,8 @@ const LazyCampaignBulkUpload = React.lazy(() =>
 
 export function CampaignsManager() {
   const ctx = useContext(AppContext);
+  const { configuration } = useConfiguration();
+  const campaignConfig = configuration.campaign;
   const opsCampaigns = normalizeOpsCampaigns(ctx?.opsCampaigns || []);
   const setOpsCampaigns = ctx?.setOpsCampaigns || (() => {});
   const teamMembers = ctx?.teamMembers || [];
@@ -66,6 +70,7 @@ export function CampaignsManager() {
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<OpsCampaign | undefined>();
   const [taskModalState, setTaskModalState] = useState<TaskModalState>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   const filteredCampaigns = useMemo(() => {
     const matchingCampaigns = opsCampaigns.filter((campaign) => {
@@ -119,18 +124,27 @@ export function CampaignsManager() {
   };
 
   const handleSaveCampaign = (campaign: OpsCampaign) => {
+    const isNew = !editingCampaign;
     setOpsCampaigns((current: OpsCampaign[]) => {
       const existing = current.some((item) => item.id === campaign.id);
       return existing
         ? current.map((item) => (item.id === campaign.id ? campaign : item))
         : [campaign, ...current];
     });
+    if (isNew && campaignConfig.autoExpandNew) {
+      setExpandedCampaigns((prev) => [...prev, campaign.id]);
+    }
     toast.success(editingCampaign ? 'Campaign updated' : 'Campaign created');
     setEditingCampaign(undefined);
   };
 
   const handleDeleteCampaign = (campaignId: string) => {
+    if (deleteConfirmId !== campaignId) {
+      setDeleteConfirmId(campaignId);
+      return;
+    }
     setOpsCampaigns((current: OpsCampaign[]) => current.filter((campaign) => campaign.id !== campaignId));
+    setDeleteConfirmId(null);
     toast.success('Campaign removed');
   };
 
@@ -297,6 +311,14 @@ export function CampaignsManager() {
             const expanded = expandedCampaigns.includes(campaign.id);
             const progress = getCampaignProgress(campaign);
 
+            const progressBarColor = campaignConfig.progressBarColors
+              ? progress.completionRate >= 75
+                ? 'bg-emerald-500'
+                : progress.completionRate >= 40
+                  ? 'bg-amber-500'
+                  : 'bg-red-500'
+              : 'bg-zinc-900 dark:bg-zinc-100';
+
             return (
               <motion.section
                 key={campaign.id}
@@ -314,7 +336,7 @@ export function CampaignsManager() {
                         {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                       </button>
                       <h2 className="truncate text-2xl font-black text-zinc-900 dark:text-zinc-100">{campaign.name}</h2>
-                      <Badge>{campaign.status}</Badge>
+                      <StatusBadge status={campaign.status} />
                       <MutedBadge>{campaign.currentPhase}</MutedBadge>
                       <PriorityBadge priority={campaign.priority} />
                     </div>
@@ -330,18 +352,18 @@ export function CampaignsManager() {
                       <div className="mb-2 flex items-center justify-between text-xs font-bold text-zinc-500">
                         <span>Cross-team completion</span>
                         <span>
-                          {progress.done}/{progress.total} done
+                          {progress.done}/{progress.total} done · {progress.completionRate}%
                         </span>
                       </div>
                       <div className="h-2 rounded-full bg-zinc-100 dark:bg-zinc-800">
                         <div
-                          className="h-2 rounded-full bg-zinc-900 transition-all dark:bg-zinc-100"
+                          className={`h-2 rounded-full transition-all ${progressBarColor}`}
                           style={{ width: `${progress.completionRate}%` }}
                         />
                       </div>
                     </div>
 
-                    {(campaign.criteria || campaign.methodology) && (
+                    {campaignConfig.showCriteriaMethodology && (campaign.criteria || campaign.methodology) && (
                       <div className="mt-5 grid gap-3 rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900 md:grid-cols-2">
                         {campaign.criteria && (
                           <div>
@@ -359,13 +381,13 @@ export function CampaignsManager() {
                     )}
                   </div>
 
-                  <div className="flex flex-wrap gap-3">
+                  <div className="flex flex-wrap items-start gap-2 xl:flex-col xl:items-end">
                     <button
                       onClick={() => {
                         setEditingCampaign(campaign);
                         setCampaignModalOpen(true);
                       }}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition-all hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-bold text-zinc-700 transition-all hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       <Pencil className="h-4 w-4" />
                       Edit
@@ -377,17 +399,24 @@ export function CampaignsManager() {
                           defaultTeamId: campaign.teamPlans.find((p) => !disabledTeams.includes(p.teamId))?.teamId || enabledTeams[0]?.id || OPERATIONS_TEAMS[0].id,
                         })
                       }
-                      className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition-all hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-100 px-4 py-2.5 text-sm font-bold text-zinc-700 transition-all hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
                     >
                       <Plus className="h-4 w-4" />
                       Add Task
                     </button>
                     <button
                       onClick={() => handleDeleteCampaign(campaign.id)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-zinc-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200"
+                      onBlur={() => setDeleteConfirmId(null)}
+                      className={`inline-flex items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition-all ${
+                        deleteConfirmId === campaign.id
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400 dark:hover:bg-red-950/40'
+                      }`}
                     >
-                      <Trash2 className="h-4 w-4" />
-                      Delete
+                      {deleteConfirmId === campaign.id
+                        ? <><AlertTriangle className="h-4 w-4" /> Confirm?</>
+                        : <><Trash2 className="h-4 w-4" /> Delete</>
+                      }
                     </button>
                   </div>
                 </div>
@@ -431,11 +460,15 @@ export function CampaignsManager() {
                               <div className="mt-4">
                                 <div className="mb-2 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">
                                   <span>Progress</span>
-                                  <span>{done}/{plan.tasks.length}</span>
+                                  <span>{done}/{plan.tasks.length} · {percent}%</span>
                                 </div>
                                 <div className="h-2 rounded-full bg-white dark:bg-black">
                                   <div
-                                    className="h-2 rounded-full bg-zinc-900 transition-all dark:bg-zinc-100"
+                                    className={`h-2 rounded-full transition-all ${
+                                      campaignConfig.progressBarColors
+                                        ? percent >= 75 ? 'bg-emerald-500' : percent >= 40 ? 'bg-amber-500' : 'bg-red-500'
+                                        : 'bg-zinc-900 dark:bg-zinc-100'
+                                    }`}
                                     style={{ width: `${percent}%` }}
                                   />
                                 </div>
@@ -592,10 +625,19 @@ function SelectFilter({
   );
 }
 
-function Badge({ children }: { children: React.ReactNode }) {
+function StatusBadge({ status }: { status: string }) {
+  const colorMap: Record<string, string> = {
+    Active:    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    Planning:  'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+    Paused:    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    'On Hold': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
+    Completed: 'bg-zinc-200 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300',
+    Cancelled: 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400',
+  };
+  const cls = colorMap[status] ?? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black';
   return (
-    <span className="rounded-full bg-zinc-900 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white dark:bg-zinc-100 dark:text-black">
-      {children}
+    <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${cls}`}>
+      {status}
     </span>
   );
 }

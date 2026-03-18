@@ -357,6 +357,7 @@ export function CampaignOverview() {
   const [sortKey, setSortKey] = useState<SortKey>("covPct");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [resetConfirm, setResetConfirm] = useState(false);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
 
   useEffect(() => {
     const reload = () => setCampaigns(loadCampaigns());
@@ -618,6 +619,25 @@ export function CampaignOverview() {
           <Button variant="outline" size="sm" onClick={() => exportPDF(filtered, totals, statusCounts, urgentCampaigns.length, brandData)}><FileText className="w-4 h-4 mr-1.5" />PDF</Button>
         </div>
       </div>
+
+      {/* ── Urgent Alert Banner ─────────────────────────────────────────── */}
+      {urgentCampaigns.length > 0 && (
+        <div className="rounded-[var(--app-radius)] border border-orange-500/30 bg-orange-500/5 px-4 py-3 flex items-center gap-3">
+          <Clock className="w-4 h-4 text-orange-500 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-orange-600 dark:text-orange-400">
+              {urgentCampaigns.length} campaign{urgentCampaigns.length > 1 ? 's' : ''} ending within 7 days and not on track
+            </p>
+            <p className="text-xs text-orange-500/80 mt-0.5 truncate">
+              {urgentCampaigns.slice(0, 3).map(c => extractBrand(c.name)).join(', ')}{urgentCampaigns.length > 3 ? ` +${urgentCampaigns.length - 3} more` : ''}
+            </p>
+          </div>
+          <button onClick={() => setDateMode(m => m === "ending-soon" ? "all" : "ending-soon")}
+            className="text-xs font-bold text-orange-500 hover:text-orange-600 transition-colors shrink-0 underline underline-offset-2">
+            Filter
+          </button>
+        </div>
+      )}
 
       {/* ── KPI Strip — 8 cards ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
@@ -996,7 +1016,22 @@ export function CampaignOverview() {
       </div>
 
       {/* ── Filters ──────────────────────────────────────────────────────── */}
-      <div className={`${CARD} p-4 space-y-4`}>
+      <div className={`${CARD} overflow-hidden`}>
+        <button
+          onClick={() => setShowFiltersPanel(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/20 transition-colors"
+          aria-expanded={showFiltersPanel}
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-bold text-foreground">Filters</span>
+            {activeFilters > 0 && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-foreground text-background">{activeFilters} active</span>
+            )}
+          </div>
+          <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showFiltersPanel ? 'rotate-180' : ''}`} />
+        </button>
+      {showFiltersPanel && <div className="p-4 pt-0 space-y-4 border-t border-border">
 
         {/* Search + clear */}
         <div className="flex gap-2">
@@ -1142,6 +1177,7 @@ export function CampaignOverview() {
             {dateTo !== "" && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-foreground/10 border border-border">To {dateTo}<button onClick={() => setDateTo("")}><X className="w-2.5 h-2.5 ml-0.5" /></button></span>}
           </div>
         )}
+      </div>}
       </div>
 
       {/* ── Data Table ───────────────────────────────────────────────────── */}

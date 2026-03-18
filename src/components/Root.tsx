@@ -184,6 +184,7 @@ const SUCCESS_LOGS_STORAGE_KEY = 'trygc-success-logs';
 const MISTAKES_STORAGE_KEY = 'trygc-mistakes';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'trygc-sidebar-collapsed';
 const COMMUNITY_WORKSPACE_STORAGE_KEY = 'trygc-community-workspace';
+const DEMO_COMPLETED_STORAGE_KEY = 'trygc-demo-completed';
 
 function readStoredWorkspaceRecords(key: string) {
   if (typeof window === 'undefined') {
@@ -277,18 +278,21 @@ export function Root() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([]);
   const [userFeatures, setUserFeatures] = useState<string[] | null>(null);
 
-  const [tasks, setTasks] = useState<TaskRecord[]>([]);
-  const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>([]);
-  const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>([]);
-  const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
+  const [tasks, setTasks] = useState<TaskRecord[]>(() => readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[]);
+  const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>(() => readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[]);
+  const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>(() => readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[]);
+  const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[]);
   const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, WorkspaceRecord>>({});
-  const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>([]);
-  const [communityWorkspace, setCommunityWorkspace] = useState<CommunityWorkspace>(createEmptyCommunityWorkspace());
-  const [campaignIntakes, setCampaignIntakes] = useState<CampaignIntakeRecord[]>([]);
-  const [organizedUpdates, setOrganizedUpdates] = useState<OrganizedUpdateRecord[]>([]);
-  const [linkWidgets, setLinkWidgets] = useState<LinkWidgetRecord[]>([]);
-  const [shiftHandovers, setShiftHandovers] = useState<ShiftHandoverRecord[]>([]);
-  const [coverageRecords, setCoverageRecords] = useState<CoverageRecord[]>([]);
+  const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>(() => normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY)));
+  const [communityWorkspace, setCommunityWorkspace] = useState<CommunityWorkspace>(() => {
+    const stored = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
+    return stored ? normalizeCommunityWorkspace(stored) : createEmptyCommunityWorkspace();
+  });
+  const [campaignIntakes, setCampaignIntakes] = useState<CampaignIntakeRecord[]>(() => normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY)));
+  const [organizedUpdates, setOrganizedUpdates] = useState<OrganizedUpdateRecord[]>(() => normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY)));
+  const [linkWidgets, setLinkWidgets] = useState<LinkWidgetRecord[]>(() => normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY)));
+  const [shiftHandovers, setShiftHandovers] = useState<ShiftHandoverRecord[]>(() => normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY)));
+  const [coverageRecords, setCoverageRecords] = useState<CoverageRecord[]>(() => normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY)));
   const [demoCompleted, setDemoCompleted] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedWorkspace, setHasLoadedWorkspace] = useState(false);
@@ -462,9 +466,9 @@ export function Root() {
   }, [userEmail, hasLoadedWorkspace]);
 
   useEffect(() => {
-    if (!userEmail) return;
+    if (!userEmail || !hasLoadedWorkspace) return;
     writeStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`, standaloneTasks);
-  }, [standaloneTasks, userEmail]);
+  }, [standaloneTasks, userEmail, hasLoadedWorkspace]);
 
   const resetWorkspaceState = useCallback(() => {
     communityWorkspaceRef.current = createEmptyCommunityWorkspace();
@@ -481,6 +485,7 @@ export function Root() {
     setShiftHandovers([]);
     setCoverageRecords([]);
     setDemoCompleted(null);
+    try { window.localStorage.removeItem(DEMO_COMPLETED_STORAGE_KEY); } catch { /* ignore */ }
     setIsLoading(true);
     setHasLoadedWorkspace(false);
     setFetchError(false);
@@ -566,12 +571,21 @@ export function Root() {
         setUserRole(data.role || 'member');
         setTeamMembers(data.config?.teamMembers || []);
         setUserFeatures(data.features || null);
-        setDemoCompleted(data.demoCompleted === true);
+        const completed = data.demoCompleted === true;
+        setDemoCompleted(completed);
+        try { window.localStorage.setItem(DEMO_COMPLETED_STORAGE_KEY, String(completed)); } catch { /* ignore */ }
         setConnectionState('online');
       } catch (error) {
         console.error('Error registering role:', error);
         setUserRole('member');
-        setDemoCompleted(false);
+        // Restore from cache so a temporary API failure does not force a demo redirect
+        try {
+          const cached = window.localStorage.getItem(DEMO_COMPLETED_STORAGE_KEY);
+          if (cached !== null) {
+            setDemoCompleted(cached === 'true');
+          }
+          // If no cache yet (first ever visit), leave demoCompleted as null — no redirect fires
+        } catch { /* ignore */ }
         setLastSyncError(error instanceof Error ? error.message : 'Failed to load user access');
         setConnectionState('error');
       }
@@ -624,10 +638,27 @@ export function Root() {
       const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[];
       const storedStandaloneTasks = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`) as StandaloneTaskRecord[];
 
-      // Merge successLogs by id: prefer server entries, fill in any local-only ones not yet synced
-      const mergeById = <T extends { id?: string | number }>(primary: T[], secondary: T[]) => {
-        const seen = new Set(primary.map((x) => String(x.id)));
-        return [...primary, ...secondary.filter((x) => !seen.has(String(x.id)))];
+      // Merge by id: prefer the entry with the newer updatedAt timestamp; local-only items are always kept
+      const mergeById = <T extends { id?: string | number; updatedAt?: string }>(primary: T[], secondary: T[]) => {
+        const primaryMap = new Map<string, T>(primary.map((x) => [String(x.id), x]));
+        const result = [...primary];
+        for (const item of secondary) {
+          const key = String(item.id);
+          const existing = primaryMap.get(key);
+          if (!existing) {
+            // Local-only item not on server yet — keep it
+            result.push(item);
+          } else {
+            const existingTime = new Date(existing.updatedAt || 0).getTime();
+            const itemTime = new Date(item.updatedAt || 0).getTime();
+            if (itemTime > existingTime) {
+              // Local version is newer — replace the server version in-place
+              const idx = result.findIndex((x) => String(x.id) === key);
+              if (idx !== -1) result[idx] = item;
+            }
+          }
+        }
+        return result;
       };
 
       const nextWorkspace = {
@@ -697,6 +728,7 @@ export function Root() {
       const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
       const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
       const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
+      const storedCommunityWorkspace = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
 
       if (storedTasks.length > 0) setTasks(storedTasks);
       if (storedTaskNotifications.length > 0) setTaskNotifications(storedTaskNotifications);
@@ -708,6 +740,7 @@ export function Root() {
       if (storedLinkWidgets.length > 0) setLinkWidgets(storedLinkWidgets);
       if (storedShiftHandovers.length > 0) setShiftHandovers(storedShiftHandovers);
       if (storedCoverageRecords.length > 0) setCoverageRecords(storedCoverageRecords);
+      if (storedCommunityWorkspace) setCommunityWorkspace(normalizeCommunityWorkspace(storedCommunityWorkspace));
 
       // Mark workspace as loaded so content shows instead of a blank loading screen
       setHasLoadedWorkspace(true);

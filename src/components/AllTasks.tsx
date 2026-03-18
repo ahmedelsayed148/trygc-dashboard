@@ -40,7 +40,7 @@ type InlineEdit = {
 type SortField = 'campaign' | 'title' | 'team' | 'status' | 'priority' | 'dueDate';
 type SortDir = 'asc' | 'desc';
 type GroupBy = 'none' | 'campaign' | 'team' | 'status';
-type QuickFilter = 'all' | 'overdue' | 'blocked' | 'unassigned';
+type QuickFilter = 'all' | 'mine' | 'overdue' | 'blocked' | 'unassigned';
 
 type TaskNotificationRecord = {
   id: string; type: string; taskId: string; taskName: string;
@@ -159,7 +159,14 @@ export function AllTasks() {
     tasks = filterByDateRange(tasks, dateRange, (task) => task.dueDate || task.updatedAt || task.createdAt);
 
     // Quick filters
-    if (quickFilter === 'overdue') tasks = tasks.filter(isTaskOverdue);
+    if (quickFilter === 'mine') {
+      const emailPrefix = userEmail.split('@')[0].toLowerCase();
+      tasks = tasks.filter(t =>
+        t.assignedTo === userEmail ||
+        t.assignedLabel?.toLowerCase() === emailPrefix ||
+        t.assignedLabel?.toLowerCase().includes(emailPrefix)
+      );
+    } else if (quickFilter === 'overdue') tasks = tasks.filter(isTaskOverdue);
     else if (quickFilter === 'blocked') tasks = tasks.filter(t => t.status === 'Blocked');
     else if (quickFilter === 'unassigned') tasks = tasks.filter(t => t.assignmentMode === 'unassigned');
 
@@ -212,8 +219,20 @@ export function AllTasks() {
   const activeFilterCount = [campaignFilter !== 'All', teamFilter !== 'All', statusFilter !== 'All', priorityFilter !== 'All'].filter(Boolean).length;
   const defaultCampaign = opsCampaigns.find(c => c.id === campaignFilter) || opsCampaigns[0];
 
+  const myTaskCount = useMemo(() => {
+    const emailPrefix = userEmail.split('@')[0].toLowerCase();
+    return operationalTasks.filter(t =>
+      !disabledTeams.includes(t.teamId) && (
+        t.assignedTo === userEmail ||
+        t.assignedLabel?.toLowerCase() === emailPrefix ||
+        t.assignedLabel?.toLowerCase().includes(emailPrefix)
+      )
+    ).length;
+  }, [operationalTasks, userEmail, disabledTeams]);
+
   const QUICK_FILTERS: Array<{ id: QuickFilter; label: string; count: number; color: string }> = [
     { id: 'all', label: 'All', count: operationalTasks.filter(t => !disabledTeams.includes(t.teamId)).length, color: 'zinc' },
+    { id: 'mine', label: 'My Tasks', count: myTaskCount, color: 'violet' },
     { id: 'overdue', label: 'Overdue', count: operationalTasks.filter(t => isTaskOverdue(t) && !disabledTeams.includes(t.teamId)).length, color: 'rose' },
     { id: 'blocked', label: 'Blocked', count: operationalTasks.filter(t => t.status === 'Blocked' && !disabledTeams.includes(t.teamId)).length, color: 'orange' },
     { id: 'unassigned', label: 'Unassigned', count: operationalTasks.filter(t => t.assignmentMode === 'unassigned' && !disabledTeams.includes(t.teamId)).length, color: 'blue' },
@@ -333,12 +352,19 @@ export function AllTasks() {
         {/* ── Header ── */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">All Tasks</h1>
               {summary.overdue > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 text-[10px] font-bold text-rose-600 dark:text-rose-400">
+                <button onClick={() => setQuickFilter('overdue')}
+                  className="inline-flex items-center gap-1 rounded-full bg-rose-500/10 border border-rose-500/20 px-2.5 py-1 text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-500/20 transition-colors">
                   <AlertCircle className="w-3 h-3" /> {summary.overdue} overdue
-                </span>
+                </button>
+              )}
+              {summary.blocked > 0 && (
+                <button onClick={() => setStatusFilter('Blocked')}
+                  className="inline-flex items-center gap-1 rounded-full bg-orange-500/10 border border-orange-500/20 px-2.5 py-1 text-[10px] font-bold text-orange-600 dark:text-orange-400 hover:bg-orange-500/20 transition-colors">
+                  <AlertCircle className="w-3 h-3" /> {summary.blocked} blocked
+                </button>
               )}
             </div>
             <p className="mt-0.5 text-sm text-zinc-500">
@@ -383,39 +409,53 @@ export function AllTasks() {
 
         {/* ── KPI Strip ── */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-          <KpiTile label="Total" value={summary.total} icon={<BarChart2 className="w-4 h-4" />} />
+          <KpiTile label="Total Tasks" value={summary.total} icon={<BarChart2 className="w-4 h-4" />} />
           <KpiTile
-            label="Completion"
+            label="Completed"
             value={`${summary.completionRate}%`}
             sub={`${summary.done} of ${summary.total} done`}
             icon={<CheckCircle2 className="w-4 h-4" />}
             progress={summary.completionRate}
-            progressColor="bg-emerald-500"
+            progressColor={summary.completionRate >= 75 ? 'bg-emerald-500' : summary.completionRate >= 40 ? 'bg-amber-500' : 'bg-rose-500'}
           />
           <KpiTile label="In Progress" value={summary.inProgress} color="text-amber-500" icon={<TrendingUp className="w-4 h-4" />} clickable onClick={() => { setStatusFilter('In Progress'); setQuickFilter('all'); }} />
-          <KpiTile label="Blocked" value={summary.blocked} color="text-rose-500" icon={<AlertCircle className="w-4 h-4" />} clickable onClick={() => { setStatusFilter('Blocked'); setQuickFilter('all'); }} />
+          <KpiTile label="Blocked" value={summary.blocked} color={summary.blocked > 0 ? 'text-rose-500' : 'text-zinc-400'} icon={<AlertCircle className="w-4 h-4" />} clickable onClick={() => { setStatusFilter('Blocked'); setQuickFilter('all'); }} />
           <KpiTile label="Overdue" value={summary.overdue} color={summary.overdue > 0 ? 'text-rose-600' : 'text-zinc-400'} icon={<Clock className="w-4 h-4" />} clickable onClick={() => setQuickFilter('overdue')} />
-          <KpiTile label="Assigned" value={summary.assigned} sub={`of ${summary.total}`} icon={<Users className="w-4 h-4" />} />
+          <KpiTile label="My Tasks" value={myTaskCount} color={myTaskCount > 0 ? 'text-violet-600 dark:text-violet-400' : 'text-zinc-400'} icon={<Users className="w-4 h-4" />} clickable onClick={() => setQuickFilter('mine')} />
         </div>
 
         {/* ── Quick Filters ── */}
         <div className="flex items-center gap-2 flex-wrap">
-          {QUICK_FILTERS.map(qf => (
-            <button key={qf.id} onClick={() => setQuickFilter(qf.id)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all border ${
-                quickFilter === qf.id
-                  ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black border-transparent'
-                  : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 bg-white dark:bg-zinc-950'
-              }`}
-            >
-              {qf.label}
-              {qf.count > 0 && (
-                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${quickFilter === qf.id ? 'bg-white/20' : qf.id === 'overdue' && qf.count > 0 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'}`}>
-                  {qf.count}
-                </span>
-              )}
-            </button>
-          ))}
+          {QUICK_FILTERS.map(qf => {
+            const isActive = quickFilter === qf.id;
+            const activeCx =
+              qf.id === 'mine' ? 'bg-violet-600 text-white border-transparent' :
+              qf.id === 'overdue' ? 'bg-rose-600 text-white border-transparent' :
+              qf.id === 'blocked' ? 'bg-orange-500 text-white border-transparent' :
+              'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black border-transparent';
+            const badgeCx =
+              isActive ? 'bg-white/20' :
+              qf.id === 'overdue' && qf.count > 0 ? 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400' :
+              qf.id === 'mine' && qf.count > 0 ? 'bg-violet-100 text-violet-600 dark:bg-violet-900/30 dark:text-violet-400' :
+              qf.id === 'blocked' && qf.count > 0 ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400' :
+              'bg-zinc-100 dark:bg-zinc-800 text-zinc-500';
+            return (
+              <button key={qf.id} onClick={() => setQuickFilter(qf.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold transition-all border ${
+                  isActive
+                    ? activeCx
+                    : 'border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:border-zinc-300 dark:hover:border-zinc-600 bg-white dark:bg-zinc-950'
+                }`}
+              >
+                {qf.label}
+                {qf.count > 0 && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${badgeCx}`}>
+                    {qf.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           {(quickFilter !== 'all' || activeFilterCount > 0 || search) && (
             <button onClick={clearFilters} className="text-xs font-bold text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors ml-auto">
               Clear all ×
@@ -593,24 +633,29 @@ export function AllTasks() {
                             key={task.id}
                             onClick={() => setTaskModalState({ campaignId: task.campaignId, defaultTeamId: task.teamId, task })}
                             className={`bg-white dark:bg-zinc-950 p-3.5 rounded-xl border hover:shadow-md transition-all cursor-pointer group ${
-                              overdue ? 'border-rose-200 dark:border-rose-900/40' : 'border-zinc-200/70 dark:border-zinc-800/70 hover:border-zinc-300 dark:hover:border-zinc-700'
+                              overdue
+                                ? 'border-rose-200 dark:border-rose-900/40 hover:border-rose-300 dark:hover:border-rose-800/60'
+                                : 'border-zinc-200/70 dark:border-zinc-800/70 hover:border-zinc-300 dark:hover:border-zinc-700'
                             }`}
                           >
                             <div className="flex items-start justify-between gap-2 mb-2">
-                              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-900 px-1.5 py-0.5 rounded truncate max-w-[120px]">{task.campaign}</span>
+                              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-900 px-1.5 py-0.5 rounded-md truncate max-w-[130px]" title={task.campaign}>{task.campaign}</span>
                               <PriorityBadge priority={task.priority} />
                             </div>
-                            <h4 className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug mb-1.5">{task.title}</h4>
-                            {task.description && <p className="text-[11px] text-zinc-500 line-clamp-2 mb-3">{task.description}</p>}
+                            <h4 className="text-[13px] font-bold text-zinc-900 dark:text-zinc-100 leading-snug mb-1.5 group-hover:text-zinc-700 dark:group-hover:text-zinc-200 transition-colors">{task.title}</h4>
+                            {task.description && <p className="text-[11px] text-zinc-500 line-clamp-2 mb-2.5 leading-relaxed">{task.description}</p>}
+                            <div className="flex items-center gap-1.5 mb-2.5">
+                              <span className="text-[9px] font-bold text-zinc-400 bg-zinc-100 dark:bg-zinc-800/80 px-1.5 py-0.5 rounded-md">{task.teamName}</span>
+                            </div>
                             <div className="flex items-center justify-between text-[10px] pt-2 border-t border-zinc-100 dark:border-zinc-800/60">
                               <div className="flex items-center gap-1.5 text-zinc-500 min-w-0">
-                                <div className="w-4 h-4 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[8px] font-bold shrink-0">
+                                <div className="w-5 h-5 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-[8px] font-black shrink-0 text-zinc-500">
                                   {getAssigneeLabel(task, task.teamName).charAt(0).toUpperCase()}
                                 </div>
                                 <span className="truncate font-medium">{getAssigneeLabel(task, task.teamName)}</span>
                               </div>
-                              <span className={`shrink-0 font-bold ${overdue ? 'text-rose-500' : 'text-zinc-400'}`}>
-                                {overdue && <AlertCircle className="w-3 h-3 inline mr-0.5" />}
+                              <span className={`shrink-0 font-bold flex items-center gap-0.5 ${overdue ? 'text-rose-500' : 'text-zinc-400'}`}>
+                                {overdue && <AlertCircle className="w-3 h-3" />}
                                 {task.dueDate ? new Date(task.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '–'}
                               </span>
                             </div>

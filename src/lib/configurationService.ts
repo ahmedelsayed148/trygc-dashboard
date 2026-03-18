@@ -21,6 +21,19 @@ export interface CampaignConfig {
   slaTimelines: Record<string, number>;
   requiredFields: string[];
   autoArchiveDays: number;
+  defaultView: 'cards' | 'list';
+  showCriteriaMethodology: boolean;
+  progressBarColors: boolean;
+  autoExpandNew: boolean;
+}
+
+export interface UpdateOrganizerConfig {
+  defaultTemplate: 'leadership' | 'daily' | 'client';
+  defaultDetailLevel: 'concise' | 'standard' | 'detailed';
+  defaultOutputStyle: 'plain' | 'rich';
+  shiftWindows: string[];
+  handoverTeams: string[];
+  maxHistoryItems: number;
 }
 
 export interface TeamConfig {
@@ -100,7 +113,8 @@ export type ConfigCategory =
   | 'task'
   | 'analytics'
   | 'data'
-  | 'feature';
+  | 'feature'
+  | 'updateOrganizer';
 
 export interface AppConfiguration {
   system: SystemConfig;
@@ -112,6 +126,7 @@ export interface AppConfiguration {
   analytics: AnalyticsConfig;
   data: DataConfig;
   feature: FeatureFlags;
+  updateOrganizer: UpdateOrganizerConfig;
 }
 
 export interface ConfigAuditLog {
@@ -163,6 +178,10 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     slaTimelines: { Discovery: 7, Planning: 14, Execution: 30, Review: 7 },
     requiredFields: ['name', 'phase', 'assignee', 'dueDate'],
     autoArchiveDays: 30,
+    defaultView: 'cards',
+    showCriteriaMethodology: true,
+    progressBarColors: true,
+    autoExpandNew: false,
   },
   team: {
     teams: ['Operations', 'Community', 'Analytics', 'Growth'],
@@ -232,6 +251,14 @@ export const DEFAULT_CONFIGURATION: AppConfiguration = {
     slaEnforcement: true,
     automationRules: false,
   },
+  updateOrganizer: {
+    defaultTemplate: 'leadership',
+    defaultDetailLevel: 'standard',
+    defaultOutputStyle: 'plain',
+    shiftWindows: ['Morning', 'Evening', 'Night', 'Weekend', 'General'],
+    handoverTeams: ['Operations', 'Community', 'Analytics', 'Growth'],
+    maxHistoryItems: 50,
+  },
 };
 
 const CONFIG_FUNCTION_URL = `https://${projectId}.supabase.co/functions/v1/make-server-b626472b/admin-config`;
@@ -247,6 +274,7 @@ export function normalizeConfiguration(input?: Partial<AppConfiguration> | null)
     analytics: { ...DEFAULT_CONFIGURATION.analytics, ...(input?.analytics || {}) },
     data: { ...DEFAULT_CONFIGURATION.data, ...(input?.data || {}) },
     feature: { ...DEFAULT_CONFIGURATION.feature, ...(input?.feature || {}) },
+    updateOrganizer: { ...DEFAULT_CONFIGURATION.updateOrganizer, ...(input?.updateOrganizer || {}) },
   };
 }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useContext, useMemo, useRef, useState } from "react";
+import React, { useCallback, useContext, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ExternalLink, Hash, Link2, Pencil, Pin, PinOff,
@@ -45,16 +45,8 @@ function WidgetsBoardContent() {
   const rawWidgets = ctx?.linkWidgets || [];
   const setLinkWidgets = ctx?.setLinkWidgets || (() => {});
 
-  // Normalize once on mount and when raw widgets change reference
-  const prevRef = useRef<typeof rawWidgets>(rawWidgets);
-  const [widgets, setWidgets] = useState<LinkWidgetRecord[]>(() => normalizeLinkWidgetRecords(rawWidgets));
-
-  // Sync external changes (avoid re-normalizing on every render)
-  if (prevRef.current !== rawWidgets) {
-    prevRef.current = rawWidgets;
-    const next = normalizeLinkWidgetRecords(rawWidgets);
-    setWidgets(next);
-  }
+  // Derive normalized widgets directly from context — single source of truth, no drift
+  const widgets = useMemo(() => normalizeLinkWidgetRecords(rawWidgets), [rawWidgets]);
 
   const [form, setForm] = useState(defaultForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,9 +55,8 @@ function WidgetsBoardContent() {
   const [showForm, setShowForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  // Commit changes to context + local state atomically
+  // Commit changes to context — context is the single source of truth
   const commitWidgets = useCallback((next: LinkWidgetRecord[]) => {
-    setWidgets(next);
     setLinkWidgets(next);
   }, [setLinkWidgets]);
 

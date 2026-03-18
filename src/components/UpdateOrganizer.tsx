@@ -24,6 +24,7 @@ import {
 import { AppContext } from "./Root";
 import { DateRangeFilter } from "./DateRangeFilter";
 import { FeatureGate } from "./FeatureGate";
+import { useConfiguration } from "../context/ConfigurationContext";
 import type { TranslateToEnglishResponse } from "../lib/api";
 import { emptyDateRange, filterByDateRange } from "../lib/dateFilters";
 import {
@@ -37,12 +38,10 @@ import {
   type ShiftHandoverRecord,
 } from "../lib/workspaceTools";
 
-const SHIFT_WINDOWS = ["Morning", "Evening", "Night", "Weekend", "General"] as const;
-
-function getDefaultHandoverForm(preparedBy = "") {
+function getDefaultHandoverForm(preparedBy = "", defaultShiftWindow = "General", defaultTeam = "Operations") {
   return {
-    title: "", shiftDate: new Date().toISOString().slice(0, 10), shiftWindow: "General",
-    preparedBy, team: "Operations", coverage: "", health: "Stable" as ShiftHandoverHealth,
+    title: "", shiftDate: new Date().toISOString().slice(0, 10), shiftWindow: defaultShiftWindow,
+    preparedBy, team: defaultTeam, coverage: "", health: "Stable" as ShiftHandoverHealth,
     summary: "", completedWork: "", pendingItems: "", blockers: "",
     escalations: "", nextShiftFocus: "", sharedContext: "",
   };
@@ -459,6 +458,70 @@ function buildProfessionalOutput({
   return lines.join("\n").trim();
 }
 
+// ── Rich format (emoji-enhanced for messaging platforms) ──────────────────────
+const SECTION_EMOJI: Record<SectionKey, string> = {
+  summary:   "📌",
+  completed: "✅",
+  progress:  "🔄",
+  blockers:  "⚠️",
+  decisions: "🔔",
+  nextSteps: "➡️",
+  metrics:   "📊",
+  notes:     "💬",
+};
+
+function buildRichOutput({
+  detailLevel,
+  options,
+  parsed,
+  preparedBy,
+  reportDate,
+  template,
+  title,
+}: {
+  detailLevel: DetailLevel;
+  options: FormatterOptions;
+  parsed: ParsedUpdate;
+  preparedBy: string;
+  reportDate: string;
+  template: OutputTemplate;
+  title: string;
+}) {
+  const preset = TEMPLATE_PRESETS[template];
+  const lines: string[] = [];
+  const preparedTitle = title.trim() || buildUpdateTitle(parsed.summary[0] || parsed.notes[0] || "Structured Update");
+  const divider = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+
+  lines.push(divider);
+  lines.push(`📋 *${preset.title.toUpperCase()}*`);
+  lines.push(divider);
+  lines.push(`📅 Date: ${formatReadableDate(reportDate)}`);
+  if (options.includeTimestamp) lines.push(`🕐 Generated: ${new Date().toLocaleString("en-US")}`);
+  lines.push(`📌 Subject: *${preparedTitle}*`);
+  if (options.includePreparedBy && preparedBy.trim()) lines.push(`👤 Prepared by: ${preparedBy.trim()}`);
+  lines.push("");
+
+  preset.sectionOrder.forEach((sectionKey) => {
+    if (sectionKey === "metrics" && !options.includeMetrics) return;
+    if (sectionKey === "notes" && !options.includeNotes) return;
+
+    const rawLines =
+      sectionKey === "summary"
+        ? buildExecutiveSummary(parsed, detailLevel)
+        : limitLines(parsed[sectionKey], detailLevel);
+
+    if (rawLines.length === 0) return;
+
+    const emoji = SECTION_EMOJI[sectionKey] || "•";
+    lines.push(`${emoji} *${preset.labels[sectionKey].toUpperCase()}*`);
+    rawLines.forEach((line) => lines.push(`  • ${line}`));
+    lines.push("");
+  });
+
+  lines.push(divider);
+  return lines.join("\n").trim();
+}
+
 async function copyToClipboard(value: string) {
   if (navigator?.clipboard) {
     await navigator.clipboard.writeText(value);
@@ -486,6 +549,8 @@ export function UpdateOrganizer() {
 
 function UpdateOrganizerContent() {
   const ctx = useContext(AppContext);
+  const { configuration } = useConfiguration();
+  const organizerConfig = configuration.updateOrganizer;
   const organizedUpdates = normalizeOrganizedUpdateRecords(ctx?.organizedUpdates || []);
   const setOrganizedUpdates = ctx?.setOrganizedUpdates || (() => {});
   const defaultPreparedBy = ctx?.userName || ctx?.userEmail || "";
@@ -496,7 +561,9 @@ function UpdateOrganizerContent() {
       (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     ), [ctx?.shiftHandovers]);
   const setShiftHandovers = ctx?.setShiftHandovers || (() => {});
-  const [handoverForm, setHandoverForm] = useState(() => getDefaultHandoverForm(defaultPreparedBy));
+  const defaultShiftWindow = organizerConfig.shiftWindows?.[0] ?? "General";
+  const defaultTeam = organizerConfig.handoverTeams?.[0] ?? "Operations";
+  const [handoverForm, setHandoverForm] = useState(() => getDefaultHandoverForm(defaultPreparedBy, defaultShiftWindow, defaultTeam));
   const [handoverEditingId, setHandoverEditingId] = useState<string | null>(null);
   const [handoverStatus, setHandoverStatus] = useState<string | null>(null);
   const [handoverHistorySearch, setHandoverHistorySearch] = useState('');
@@ -506,8 +573,8 @@ function UpdateOrganizerContent() {
   const [reportTitle, setReportTitle] = useState("");
   const [preparedBy, setPreparedBy] = useState(defaultPreparedBy);
   const [reportDate, setReportDate] = useState(DEFAULT_REPORT_DATE);
-  const [template, setTemplate] = useState<OutputTemplate>("leadership");
-  const [detailLevel, setDetailLevel] = useState<DetailLevel>("standard");
+  const [template, setTemplate] = useState<OutputTemplate>(organizerConfig.defaultTemplate as OutputTemplate);
+  const [detailLevel, setDetailLevel] = useState<DetailLevel>(organizerConfig.defaultDetailLevel as DetailLevel);
   const [translatedInput, setTranslatedInput] = useState("");
   const [formattedOutput, setFormattedOutput] = useState("");
   const [sourceLanguage, setSourceLanguage] = useState("auto");
@@ -515,6 +582,7 @@ function UpdateOrganizerContent() {
   const [isFormatting, setIsFormatting] = useState(false);
   const [showTranslationBadge, setShowTranslationBadge] = useState(false);
   const [options, setOptions] = useState<FormatterOptions>(DEFAULT_OPTIONS);
+  const [outputStyle, setOutputStyle] = useState<'plain' | 'rich'>(organizerConfig.defaultOutputStyle as 'plain' | 'rich');
   const [historySearch, setHistorySearch] = useState("");
   const [dateRange, setDateRange] = useState(emptyDateRange);
 
@@ -534,7 +602,7 @@ function UpdateOrganizerContent() {
   const updateHandoverField = (field: keyof typeof handoverForm, value: string) => {
     setHandoverForm(c => ({ ...c, [field]: value }));
   };
-  const resetHandoverForm = () => { setHandoverForm(getDefaultHandoverForm(defaultPreparedBy)); setHandoverEditingId(null); };
+  const resetHandoverForm = () => { setHandoverForm(getDefaultHandoverForm(defaultPreparedBy, defaultShiftWindow, defaultTeam)); setHandoverEditingId(null); };
   const handleHandoverSubmit = (event: React.FormEvent) => {
     event.preventDefault();
     const now = new Date().toISOString();
@@ -648,7 +716,8 @@ function UpdateOrganizerContent() {
       }
 
       const parsed = parseStructuredUpdate(textToFormat);
-      const nextOutput = buildProfessionalOutput({
+      const buildFn = outputStyle === 'rich' ? buildRichOutput : buildProfessionalOutput;
+      const nextOutput = buildFn({
         detailLevel,
         options,
         parsed,
@@ -872,6 +941,24 @@ function UpdateOrganizerContent() {
                 <OptionToggle checked={options.includeTimestamp} label="Include Generated Time" onChange={(checked) => setOptions((current) => ({ ...current, includeTimestamp: checked }))} />
                 <OptionToggle checked={options.includePreparedBy} label="Include Prepared By" onChange={(checked) => setOptions((current) => ({ ...current, includePreparedBy: checked }))} />
               </div>
+              <div className="mt-3 flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Output Style</span>
+                <div className="flex items-center gap-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-0.5 rounded-lg">
+                  {(['plain', 'rich'] as const).map(style => (
+                    <button key={style} type="button" onClick={() => setOutputStyle(style)}
+                      className={`px-3 py-1 rounded-md text-xs font-bold capitalize transition-all ${
+                        outputStyle === style
+                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black'
+                          : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+                      }`}>
+                      {style === 'rich' ? '✨ Rich (Emoji)' : '📄 Plain Text'}
+                    </button>
+                  ))}
+                </div>
+                {outputStyle === 'rich' && (
+                  <span className="text-[10px] text-zinc-400">Formatted for Slack, Teams, WhatsApp</span>
+                )}
+              </div>
             </div>
 
             <div className="px-5 py-5 sm:px-6">
@@ -1018,7 +1105,7 @@ Next steps:
 
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {filteredHistory.length > 0 ? (
-                filteredHistory.slice(0, 10).map((item) => (
+                filteredHistory.slice(0, organizerConfig.maxHistoryItems).map((item) => (
                   <article key={item.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
@@ -1079,10 +1166,14 @@ Next steps:
                     <Field label="Shift Date"><input type="date" required value={handoverForm.shiftDate} onChange={e => updateHandoverField('shiftDate', e.target.value)} className={inputClassName} /></Field>
                     <Field label="Shift Window">
                       <select value={handoverForm.shiftWindow} onChange={e => updateHandoverField('shiftWindow', e.target.value)} className={inputClassName}>
-                        {SHIFT_WINDOWS.map(w => <option key={w} value={w}>{w}</option>)}
+                        {(organizerConfig.shiftWindows ?? ['General']).map(w => <option key={w} value={w}>{w}</option>)}
                       </select>
                     </Field>
-                    <Field label="Team"><input value={handoverForm.team} onChange={e => updateHandoverField('team', e.target.value)} className={inputClassName} placeholder="Operations" /></Field>
+                    <Field label="Team">
+                      <select value={handoverForm.team} onChange={e => updateHandoverField('team', e.target.value)} className={inputClassName}>
+                        {(organizerConfig.handoverTeams ?? ['Operations']).map(t => <option key={t} value={t}>{t}</option>)}
+                      </select>
+                    </Field>
                     <Field label="Prepared By"><input value={handoverForm.preparedBy} onChange={e => updateHandoverField('preparedBy', e.target.value)} className={inputClassName} /></Field>
                     <Field label="Coverage / Hours"><input value={handoverForm.coverage} onChange={e => updateHandoverField('coverage', e.target.value)} className={inputClassName} placeholder="6 PM - 2 AM" /></Field>
                   </div>
@@ -1153,7 +1244,7 @@ Next steps:
                 </label>
               </div>
               <div className="grid gap-3 xl:grid-cols-2">
-                {filteredHandovers.length > 0 ? filteredHandovers.slice(0, 12).map(item => (
+                {filteredHandovers.length > 0 ? filteredHandovers.slice(0, organizerConfig.maxHistoryItems).map(item => (
                   <article key={item.id} className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">

@@ -5,6 +5,7 @@ import { projectId, publicAnonKey } from '../../utils/supabase/info';
 
 export function DataImport() {
   const ctx = useContext(AppContext);
+  const refreshWorkspaceData = ctx?.refreshWorkspaceData;
   const [importing, setImporting] = useState(false);
   const [importStatus, setImportStatus] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,8 +42,10 @@ export function DataImport() {
       const result = await response.json();
       setImportStatus(`Import completed successfully! Imported ${result.count || 0} records.`);
 
-      // Refresh the page data
-      window.location.reload();
+      // Reload workspace data from the server so the UI reflects the import immediately
+      if (refreshWorkspaceData) {
+        await refreshWorkspaceData();
+      }
     } catch (error) {
       console.error('Import error:', error);
       setImportStatus('Import failed. Please check your file and try again.');

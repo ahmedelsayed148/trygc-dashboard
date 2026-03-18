@@ -1,7 +1,8 @@
 import React, { useContext, useState } from 'react';
+import { toast } from 'sonner';
 import { AppContext } from './Root';
 import { useNavigate } from '../lib/routerCompat';
-import { Settings as SettingsIcon, User, Bell, Lock, Palette, Database, Users, Save, Download, Upload, X, Sparkles, ClipboardList } from 'lucide-react';
+import { Settings as SettingsIcon, User, Bell, Lock, Palette, Database, Users, Download, Upload, X, Sparkles, ClipboardList } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { AdminDataActions } from './AdminDataActions';
 import { useAppearance } from '../context/AppearanceContext';
@@ -26,7 +27,6 @@ export function Settings() {
   
   // Password change modal state
   const [showPasswordModal, setShowPasswordModal] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -419,7 +419,6 @@ export function Settings() {
               <button 
                 onClick={() => {
                   setShowPasswordModal(false);
-                  setCurrentPassword('');
                   setNewPassword('');
                   setConfirmPassword('');
                   setPasswordError('');
@@ -466,7 +465,6 @@ export function Settings() {
               <button 
                 onClick={() => {
                   setShowPasswordModal(false);
-                  setCurrentPassword('');
                   setNewPassword('');
                   setConfirmPassword('');
                   setPasswordError('');
@@ -499,9 +497,8 @@ export function Settings() {
                     if (error) {
                       setPasswordError(error.message);
                     } else {
-                      alert('Password changed successfully!');
+                      toast.success('Password changed successfully!');
                       setShowPasswordModal(false);
-                      setCurrentPassword('');
                       setNewPassword('');
                       setConfirmPassword('');
                       setPasswordError('');
