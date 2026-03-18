@@ -85,7 +85,9 @@ export function loadCampaigns(): CampaignRow[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed;   // allow empty array
     }
-  } catch {}
+  } catch (error) {
+    void error;
+  }
   // First visit — start with seed data
   const seed = buildSeedWithIds();
   saveCampaigns(seed);
@@ -98,5 +100,7 @@ export function saveCampaigns(campaigns: CampaignRow[]): void {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(campaigns));
     // Notify any mounted CampaignOverview instances immediately
     window.dispatchEvent(new CustomEvent(CAMPAIGN_DATA_EVENT));
-  } catch {}
+  } catch (error) {
+    void error;
+  }
 }

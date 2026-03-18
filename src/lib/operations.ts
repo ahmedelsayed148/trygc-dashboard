@@ -427,10 +427,20 @@ export function buildTeamPlansForCampaign(
   startDate = '',
   existingPlans?: any[],
 ): CampaignTeamPlan[] {
-  return OPERATIONS_TEAMS.map((team) => {
+  const planTeamIds = Array.isArray(existingPlans)
+    ? existingPlans
+        .map((plan) => (typeof plan?.teamId === 'string' ? plan.teamId : ''))
+        .filter(Boolean)
+    : [];
+  const teamScope = planTeamIds.length > 0
+    ? OPERATIONS_TEAMS.filter((team) => planTeamIds.includes(team.id))
+    : OPERATIONS_TEAMS;
+
+  return teamScope.map((team) => {
     const existingPlan = existingPlans?.find((plan) => plan?.teamId === team.id);
     const existingTasks = Array.isArray(existingPlan?.tasks) ? existingPlan.tasks : [];
-    const tasks = existingTasks.length > 0
+    const hasExplicitTasks = Boolean(existingPlan) && Array.isArray(existingPlan?.tasks);
+    const tasks = hasExplicitTasks
       ? existingTasks.map((task: any) =>
           createCampaignTask(team.id, {
             ...task,

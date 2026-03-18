@@ -13,6 +13,31 @@ interface PresenceUser {
 
 type PresenceRecord = PresenceUser & { presence_ref: string };
 
+function normalizePresenceUsers(records: PresenceRecord[]): PresenceUser[] {
+  const map = new Map<string, PresenceUser>();
+  for (const record of records) {
+    if (!record.email) continue;
+    const { presence_ref, ...user } = record;
+    map.set(user.email, user);
+  }
+  return Array.from(map.values()).sort((a, b) => a.email.localeCompare(b.email));
+}
+
+function sameUsers(a: PresenceUser[], b: PresenceUser[]) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (
+      a[i].email !== b[i].email ||
+      a[i].name !== b[i].name ||
+      a[i].user_id !== b[i].user_id ||
+      a[i].online_at !== b[i].online_at
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 interface ActiveUsersWidgetProps {
   userEmail: string;
   userName: string;
@@ -35,26 +60,25 @@ export function ActiveUsersWidget({ userEmail, userName }: ActiveUsersWidgetProp
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<PresenceUser>();
-        const users = Object.values(state)
-          .flat()
-          .filter((u): u is PresenceRecord => !!u.email)
-          .map(({ presence_ref, ...user }) => user);
-        setActiveUsers(users);
+        const users = normalizePresenceUsers(
+          Object.values(state).flat().filter((u): u is PresenceRecord => !!u.email),
+        );
+        setActiveUsers((prev) => (sameUsers(prev, users) ? prev : users));
       })
       .on('presence', { event: 'join' }, ({ newPresences }) => {
+        const incoming = normalizePresenceUsers(newPresences as PresenceRecord[]);
         setActiveUsers((prev) => {
-          const incoming = (newPresences as PresenceRecord[])
-            .filter((u) => !!u.email)
-            .map(({ presence_ref, ...user }) => user)
-            .filter((u) => !prev.some((p) => p.email === u.email));
-          return [...prev, ...incoming];
+          if (incoming.length === 0) return prev;
+          const merged = normalizePresenceUsers([
+            ...prev.map((u) => ({ ...u, presence_ref: u.email })),
+            ...incoming.map((u) => ({ ...u, presence_ref: u.email })),
+          ]);
+          return sameUsers(prev, merged) ? prev : merged;
         });
       })
       .on('presence', { event: 'leave' }, ({ leftPresences }) => {
         const leftEmails = new Set(
-          (leftPresences as PresenceRecord[])
-            .filter((u) => !!u.email)
-            .map((u) => u.email),
+          normalizePresenceUsers(leftPresences as PresenceRecord[]).map((u) => u.email),
         );
         setActiveUsers((prev) => prev.filter((u) => !leftEmails.has(u.email)));
       })
@@ -73,7 +97,9 @@ export function ActiveUsersWidget({ userEmail, userName }: ActiveUsersWidgetProp
       });
 
     return () => {
-      channel.untrack().then(() => supabase.removeChannel(channel));
+      channel.untrack().catch(() => undefined).finally(() => {
+        void supabase.removeChannel(channel);
+      });
     };
   }, [userEmail, userName]);
 

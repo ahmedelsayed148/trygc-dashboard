@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Target,
   AlertCircle,
-  TrendingUp,
   Users,
   Calendar,
   ArrowRight,
@@ -18,14 +17,39 @@ import {
   Award,
   Zap,
   BarChart3,
-  Clock,
   ChevronRight,
   Flame,
   Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActiveUsersWidget } from './ActiveUsersWidget';
 
 const EASE = [0.22, 1, 0.36, 1] as const;
+const NOW_MS = 1000 * 60 * 60;
+
+type TaskLike = {
+  id?: string | number;
+  campaign?: string;
+  title?: string;
+  status?: string;
+  assignedTo?: string;
+  metricCON?: number;
+  metricTarget?: number;
+  slaHrs?: number;
+  startDateTime?: string;
+  endDateTime?: string;
+  createdAt?: string;
+};
+
+type SuccessLike = {
+  id?: string;
+  agent?: string;
+  detail?: string;
+  time?: string;
+  timestamp?: string;
+  createdAt?: string;
+  date?: string;
+};
 
 const stagger = {
   container: { hidden: {}, show: { transition: { staggerChildren: 0.06 } } },
@@ -34,19 +58,18 @@ const stagger = {
 
 export function Dashboard() {
   const ctx = useContext(AppContext);
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const successLogs = ctx?.successLogs || [];
+  const tasks = (ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || []) as TaskLike[];
+  const successLogs = (ctx?.successLogs || []) as SuccessLike[];
   const userName = ctx?.userName || '';
   const userEmail = ctx?.userEmail || '';
   const isAdmin = ctx?.isAdmin || false;
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState(emptyDateRange);
 
-  const calculateAging = (start: string, end?: string) => {
-    if (!start) return 0;
-    const startTime = new Date(start);
-    const endTime = end ? new Date(end) : new Date();
-    return Number(((endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60)).toFixed(1));
+  const toMs = (value?: string) => {
+    if (!value) return 0;
+    const parsed = new Date(value).getTime();
+    return Number.isNaN(parsed) ? 0 : parsed;
   };
 
   const myTasks = useMemo(() => {
@@ -55,26 +78,42 @@ export function Dashboard() {
   }, [tasks, isAdmin, userName, userEmail]);
 
   const filteredTasks = useMemo(
-    () => filterByDateRange(myTasks, dateRange, (task: any) => task.endDateTime || task.startDateTime || task.createdAt),
+    () => filterByDateRange(myTasks, dateRange, (task: TaskLike) => task.endDateTime || task.startDateTime || task.createdAt),
     [dateRange, myTasks],
   );
 
   const filteredSuccesses = useMemo(
-    () => filterByDateRange(successLogs, dateRange, (log: any) => log.timestamp || log.createdAt || log.date),
+    () => filterByDateRange(successLogs, dateRange, (log: SuccessLike) => log.timestamp || log.createdAt || log.date),
     [dateRange, successLogs],
   );
 
   const stats = useMemo(() => {
     const total = filteredTasks.length;
-    const done = filteredTasks.filter((t: any) => t.status === 'Done').length;
-    const inProgress = filteredTasks.filter((t: any) => t.status === 'In Progress').length;
-    const blocked = filteredTasks.filter((t: any) => t.status === 'Blocked').length;
-    const overdue = filteredTasks.filter((t: any) => {
-      const aging = calculateAging(t.startDateTime, t.endDateTime);
-      return t.status !== 'Done' && aging > t.slaHrs;
-    }).length;
-    const totalCON = filteredTasks.reduce((a: number, b: any) => a + (b.metricCON || 0), 0);
-    const totalTarget = filteredTasks.reduce((a: number, b: any) => a + (b.metricTarget || 0), 0);
+    let done = 0;
+    let inProgress = 0;
+    let blocked = 0;
+    let overdue = 0;
+    let totalCON = 0;
+    let totalTarget = 0;
+
+    const now = Date.now();
+    for (const task of filteredTasks as TaskLike[]) {
+      const status = task.status || '';
+      if (status === 'Done') done += 1;
+      if (status === 'In Progress') inProgress += 1;
+      if (status === 'Blocked') blocked += 1;
+
+      totalCON += task.metricCON || 0;
+      totalTarget += task.metricTarget || 0;
+
+      if (status !== 'Done' && (task.slaHrs || 0) > 0) {
+        const startMs = toMs(task.startDateTime);
+        const endMs = toMs(task.endDateTime) || now;
+        const agingHrs = (endMs - startMs) / NOW_MS;
+        if (startMs > 0 && agingHrs > (task.slaHrs || 0)) overdue += 1;
+      }
+    }
+
     const achievementRate = totalTarget > 0 ? Math.min(Math.round((totalCON / totalTarget) * 100), 100) : 0;
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, blocked, overdue, totalCON, totalTarget, achievementRate, completionRate };
@@ -82,7 +121,7 @@ export function Dashboard() {
 
   const recentTasks = useMemo(() => {
     return [...filteredTasks]
-      .sort((a: any, b: any) => new Date(b.startDateTime || b.createdAt || 0).getTime() - new Date(a.startDateTime || a.createdAt || 0).getTime())
+      .sort((a: TaskLike, b: TaskLike) => new Date(b.startDateTime || b.createdAt || 0).getTime() - new Date(a.startDateTime || a.createdAt || 0).getTime())
       .slice(0, 6);
   }, [filteredTasks]);
 
@@ -90,13 +129,25 @@ export function Dashboard() {
 
   const teamPerformance = useMemo(() => {
     if (!isAdmin) return [];
-    const agents = [...new Set(filteredTasks.map((t: any) => t.assignedTo))].filter(Boolean);
-    return agents.map((name: string) => {
-      const agentTasks = filteredTasks.filter((t: any) => t.assignedTo === name);
-      const done = agentTasks.filter((t: any) => t.status === 'Done').length;
-      const score = agentTasks.length > 0 ? Math.round((done / agentTasks.length) * 100) : 0;
-      return { name, total: agentTasks.length, done, score };
-    }).sort((a, b) => b.score - a.score).slice(0, 5);
+    const byAgent = new Map<string, { total: number; done: number }>();
+    for (const task of filteredTasks as TaskLike[]) {
+      const name = task.assignedTo;
+      if (!name) continue;
+      const prev = byAgent.get(name) || { total: 0, done: 0 };
+      prev.total += 1;
+      if (task.status === 'Done') prev.done += 1;
+      byAgent.set(name, prev);
+    }
+
+    return Array.from(byAgent.entries())
+      .map(([name, counts]) => ({
+        name,
+        total: counts.total,
+        done: counts.done,
+        score: counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0,
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
   }, [filteredTasks, isAdmin]);
 
   const greeting = useMemo(() => {
@@ -209,6 +260,13 @@ export function Dashboard() {
         />
       </motion.div>
 
+      {/* Active Users Widget — admin only */}
+      {isAdmin && (
+        <motion.div variants={stagger.item}>
+          <ActiveUsersWidget userEmail={userEmail} userName={userName} />
+        </motion.div>
+      )}
+
       {/* Middle Row */}
       <motion.div variants={stagger.item} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Achievement */}
@@ -313,7 +371,7 @@ export function Dashboard() {
           </div>
           <div className="space-y-1.5">
             {recentTasks.length > 0 ? (
-              recentTasks.map((task: any) => (
+              recentTasks.map((task: TaskLike) => (
                 <div
                   key={task.id}
                   className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer group"
@@ -382,7 +440,7 @@ export function Dashboard() {
             </div>
             <div className="space-y-1.5">
               {recentSuccesses.length > 0 ? (
-                recentSuccesses.map((success: any) => (
+                recentSuccesses.map((success: SuccessLike) => (
                   <div key={success.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
                     <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
                       <Star className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />

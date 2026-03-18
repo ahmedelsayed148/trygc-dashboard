@@ -18,11 +18,44 @@ interface Notification {
   icon: React.ElementType;
 }
 
+type NotificationTask = {
+  id: string | number;
+  status?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+  slaHrs?: number;
+  campaign?: string;
+  assignedTo?: string;
+};
+
+type SuccessLog = {
+  id?: string | number;
+  title?: string;
+  agent?: string;
+  detail?: string;
+  time?: string;
+};
+
+type TaskNotificationRecord = {
+  id: string;
+  assignedTo?: string;
+  taskName?: string;
+  taskDescription?: string;
+  time?: string;
+  date?: string;
+};
+
+const EMPTY_TASKS: NotificationTask[] = [];
+const EMPTY_SUCCESS_LOGS: SuccessLog[] = [];
+const EMPTY_TASK_NOTIFICATIONS: TaskNotificationRecord[] = [];
+
 export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationPanelProps) {
   const ctx = useContext(AppContext);
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const successLogs = ctx?.successLogs || [];
-  const taskNotifications = ctx?.taskNotifications || [];
+  const tasks = (ctx?.operationalTasks?.length
+    ? ctx.operationalTasks
+    : ctx?.tasks) as NotificationTask[] | undefined ?? EMPTY_TASKS;
+  const successLogs = (ctx?.successLogs as SuccessLog[] | undefined) ?? EMPTY_SUCCESS_LOGS;
+  const taskNotifications = (ctx?.taskNotifications as TaskNotificationRecord[] | undefined) ?? EMPTY_TASK_NOTIFICATIONS;
   const userEmail = ctx?.userEmail || '';
   const panelRef = useRef<HTMLDivElement>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -48,7 +81,7 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
   const allNotifications = useMemo<Notification[]>(() => {
     const notifs: Notification[] = [];
 
-    successLogs.slice(0, 3).forEach((log: any) => {
+    successLogs.slice(0, 3).forEach((log) => {
       notifs.push({
         id: `success-${log.id}`,
         type: 'success',
@@ -59,11 +92,11 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
       });
     });
 
-    tasks.filter((t: any) => {
+    tasks.filter((t) => {
       if (t.status === 'Done' || !t.startDateTime) return false;
       const aging = (Date.now() - new Date(t.startDateTime).getTime()) / 3_600_000;
-      return aging > t.slaHrs;
-    }).slice(0, 3).forEach((t: any) => {
+      return aging > Number(t.slaHrs || 0);
+    }).slice(0, 3).forEach((t) => {
       notifs.push({
         id: `overdue-${t.id}`,
         type: 'task_overdue',
@@ -74,20 +107,20 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
       });
     });
 
-    tasks.filter((t: any) => t.status === 'Done' && t.endDateTime)
-      .sort((a: any, b: any) => new Date(b.endDateTime).getTime() - new Date(a.endDateTime).getTime())
-      .slice(0, 3).forEach((t: any) => {
+    tasks.filter((t) => t.status === 'Done' && t.endDateTime)
+      .sort((a, b) => new Date(b.endDateTime || 0).getTime() - new Date(a.endDateTime || 0).getTime())
+      .slice(0, 3).forEach((t) => {
         notifs.push({
           id: `done-${t.id}`,
           type: 'task_done',
           title: 'Task Completed',
           description: `${t.campaign} by ${t.assignedTo || 'unknown'}`,
-          time: new Date(t.endDateTime).toLocaleDateString(),
+          time: new Date(t.endDateTime || 0).toLocaleDateString(),
           icon: CheckCircle2,
         });
       });
 
-    tasks.filter((t: any) => t.status === 'Blocked').slice(0, 2).forEach((t: any) => {
+    tasks.filter((t) => t.status === 'Blocked').slice(0, 2).forEach((t) => {
       notifs.push({
         id: `blocked-${t.id}`,
         type: 'task_blocked',
@@ -99,9 +132,9 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
     });
 
     taskNotifications
-      .filter((n: any) => n.assignedTo?.toLowerCase() === userEmail.toLowerCase())
+      .filter((n) => n.assignedTo?.toLowerCase() === userEmail.toLowerCase())
       .slice(0, 5)
-      .forEach((n: any) => {
+      .forEach((n) => {
         notifs.push({
           id: n.id,
           type: 'task_new',

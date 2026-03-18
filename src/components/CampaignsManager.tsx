@@ -219,11 +219,6 @@ export function CampaignsManager() {
               return plan;
             }
 
-            if (plan.tasks.length <= 1) {
-              toast.error('Each team must keep at least one task per campaign');
-              return plan;
-            }
-
             return {
               ...plan,
               tasks: plan.tasks.filter((task) => task.id !== taskId),

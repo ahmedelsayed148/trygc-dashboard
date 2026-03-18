@@ -5,10 +5,23 @@ import { DateRangeFilter } from './DateRangeFilter';
 import { emptyDateRange, filterByDateRange } from '../lib/dateFilters';
 import { cn } from '@/lib/utils';
 
+type SuccessLogRecord = {
+  id: number;
+  title?: string;
+  detail: string;
+  agent?: string;
+  campaign?: string;
+  date?: string;
+  time?: string;
+  timestamp?: string;
+  createdAt?: string;
+};
+const EMPTY_SUCCESS_LOGS: SuccessLogRecord[] = [];
+
 export function SuccessesFeed() {
   const ctx = useContext(AppContext);
-  const successLogs = ctx?.successLogs || [];
-  const setSuccessLogs = ctx?.setSuccessLogs || (() => {});
+  const successLogs = (ctx?.successLogs as SuccessLogRecord[] | undefined) ?? EMPTY_SUCCESS_LOGS;
+  const setSuccessLogs = (ctx?.setSuccessLogs || (() => {})) as (value: React.SetStateAction<SuccessLogRecord[]>) => void;
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCampaign, setFilterCampaign] = useState('All');
   const [dateRange, setDateRange] = useState(emptyDateRange);
@@ -18,7 +31,7 @@ export function SuccessesFeed() {
 
   const allCampaigns = useMemo(() => {
     const s = new Set<string>();
-    successLogs.forEach((l: any) => { if (l.campaign) s.add(l.campaign); });
+    successLogs.forEach((l: SuccessLogRecord) => { if (l.campaign) s.add(l.campaign); });
     return ['All', ...Array.from(s).sort()];
   }, [successLogs]);
 
@@ -26,8 +39,8 @@ export function SuccessesFeed() {
     return filterByDateRange(
       successLogs,
       dateRange,
-      (log: any) => log.timestamp || log.createdAt || log.date,
-    ).filter((log: any) => {
+      (log: SuccessLogRecord) => log.timestamp || log.createdAt || log.date,
+    ).filter((log: SuccessLogRecord) => {
       const q = searchTerm.toLowerCase();
       const matchSearch = !q || log.title?.toLowerCase().includes(q) || log.agent?.toLowerCase().includes(q) || log.detail?.toLowerCase().includes(q) || log.campaign?.toLowerCase().includes(q);
       const matchCampaign = filterCampaign === 'All' || (log.campaign || 'General') === filterCampaign;
@@ -37,8 +50,8 @@ export function SuccessesFeed() {
 
   // Group by campaign
   const grouped = useMemo(() => {
-    const map: Record<string, any[]> = {};
-    filtered.forEach((log: any) => {
+    const map: Record<string, SuccessLogRecord[]> = {};
+    filtered.forEach((log: SuccessLogRecord) => {
       const key = log.campaign || 'General';
       if (!map[key]) map[key] = [];
       map[key].push(log);
@@ -46,7 +59,7 @@ export function SuccessesFeed() {
     return Object.entries(map).sort(([a], [b]) => a.localeCompare(b));
   }, [filtered]);
 
-  const uniqueAgents = [...new Set(successLogs.map((s: any) => s.agent))].length;
+  const uniqueAgents = [...new Set(successLogs.map((s: SuccessLogRecord) => s.agent))].length;
 
   const toggleCampaign = (name: string) => {
     setExpandedCampaigns((prev) => {
@@ -56,14 +69,14 @@ export function SuccessesFeed() {
     });
   };
 
-  const handleEdit = (log: any) => { setEditingId(log.id); setEditForm({ title: log.title || log.agent || '', detail: log.detail }); };
+  const handleEdit = (log: SuccessLogRecord) => { setEditingId(log.id); setEditForm({ title: log.title || log.agent || '', detail: log.detail }); };
   const handleSave = () => {
     if (editingId !== null) {
-      setSuccessLogs(successLogs.map((log: any) => log.id === editingId ? { ...log, ...editForm } : log));
+      setSuccessLogs(successLogs.map((log: SuccessLogRecord) => log.id === editingId ? { ...log, ...editForm } : log));
       setEditingId(null);
     }
   };
-  const handleDelete = (id: number) => setSuccessLogs(successLogs.filter((log: any) => log.id !== id));
+  const handleDelete = (id: number) => setSuccessLogs(successLogs.filter((log: SuccessLogRecord) => log.id !== id));
 
   return (
     <div className="space-y-5">
@@ -145,14 +158,14 @@ export function SuccessesFeed() {
                     </span>
                   </div>
                   <div className="hidden sm:flex items-center gap-4 text-xs text-zinc-500">
-                    <span>{[...new Set(logs.map((l: any) => l.agent))].length} contributor{[...new Set(logs.map((l: any) => l.agent))].length !== 1 ? 's' : ''}</span>
+                    <span>{[...new Set(logs.map((l: SuccessLogRecord) => l.agent))].length} contributor{[...new Set(logs.map((l: SuccessLogRecord) => l.agent))].length !== 1 ? 's' : ''}</span>
                   </div>
                 </button>
 
                 {/* Entries */}
                 {isExpanded && (
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-                    {logs.map((success: any) => (
+                    {logs.map((success: SuccessLogRecord) => (
                       <div key={success.id} className="group p-5 hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors">
                         <div className="flex items-start gap-4">
                           <div className="w-9 h-9 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center shrink-0">

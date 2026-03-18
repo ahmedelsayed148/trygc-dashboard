@@ -264,7 +264,7 @@ function splitIntoLines(text: string) {
 
 function stripLeadingKeyword(line: string) {
   return line.replace(
-    /^(summary|completed|done|progress|ongoing|blockers?|issues?|risks?|next steps?|actions?|decisions?|metrics?|kpis?|notes?)\s*[:\-]\s*/i,
+    /^(summary|completed|done|progress|ongoing|blockers?|issues?|risks?|next steps?|actions?|decisions?|metrics?|kpis?|notes?)\s*[:-]\s*/i,
     "",
   ).trim();
 }

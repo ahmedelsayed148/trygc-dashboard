@@ -1,15 +1,18 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Save, X } from 'lucide-react';
+import { Plus, Save, Trash2, X } from 'lucide-react';
 import {
   CAMPAIGN_PHASES,
   CAMPAIGN_STATUSES,
   MARKETS,
+  OPERATIONS_TEAMS,
   TASK_PRIORITIES,
+  createCampaignTask,
   createOpsCampaign,
   type OpsCampaign,
   type CampaignPhase,
+  type CampaignTeamPlan,
   type CampaignStatus,
   type TaskPriority,
 } from '../../lib/operations';
@@ -90,11 +93,50 @@ export function CampaignEditorModal({
     }
   }, [defaults, isOpen, reset]);
 
+  const [selectedTeamIds, setSelectedTeamIds] = React.useState<string[]>([]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const currentTeamIds = campaign?.teamPlans?.map((plan) => plan.teamId) || [];
+    setSelectedTeamIds(currentTeamIds.length > 0 ? currentTeamIds : OPERATIONS_TEAMS.map((team) => team.id));
+  }, [campaign, isOpen]);
+
   const submit = handleSubmit((values) => {
+    const preservedPlans = new Map<string, CampaignTeamPlan>(
+      (campaign?.teamPlans || []).map((plan) => [plan.teamId, plan]),
+    );
+    const nextTeamPlans: CampaignTeamPlan[] = selectedTeamIds.map((teamId) => {
+      const teamDefinition = OPERATIONS_TEAMS.find((team) => team.id === teamId);
+      const existing = preservedPlans.get(teamId);
+      if (existing) {
+        return existing;
+      }
+
+      return {
+        teamId,
+        teamName: teamDefinition?.name || teamId,
+        summary: teamDefinition?.description || '',
+        tasks: (teamDefinition?.defaultTasks || []).map((template) =>
+          createCampaignTask(teamId, {
+            title: template.title,
+            description: template.description.replace('{campaign}', values.name),
+            priority: template.priority || 'Medium',
+            dueDate: values.startDate,
+            assignmentMode: 'team',
+            assignedTeamId: teamId,
+          }),
+        ),
+      };
+    });
+
     const nextCampaign = createOpsCampaign({
       ...campaign,
       ...values,
       budget: Number(values.budget) || 0,
+      teamPlans: nextTeamPlans,
       updatedAt: new Date().toISOString(),
     });
 
@@ -125,7 +167,7 @@ export function CampaignEditorModal({
                   {campaign ? 'Edit Campaign' : 'New Campaign'}
                 </h2>
                 <p className="mt-1 text-sm text-zinc-500">
-                  Every new campaign is auto-distributed across all operations teams.
+                  Add or remove campaign teams, then manage subtasks only for selected teams.
                 </p>
               </div>
               <button
@@ -284,6 +326,59 @@ export function CampaignEditorModal({
                   placeholder="Campaign brief, risks, handover notes, client requirements"
                 />
               </label>
+
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-semibold text-zinc-700 dark:text-zinc-200">Campaign Teams</div>
+                    <div className="text-xs text-zinc-500 dark:text-zinc-400">Select teams that should exist in this campaign.</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTeamIds(OPERATIONS_TEAMS.map((team) => team.id))}
+                      className="inline-flex items-center gap-1 rounded-xl border border-zinc-300 px-3 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add all
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedTeamIds([])}
+                      className="inline-flex items-center gap-1 rounded-xl border border-zinc-300 px-3 py-1.5 text-xs font-bold text-zinc-700 transition-all hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove all
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {OPERATIONS_TEAMS.map((team) => {
+                    const selected = selectedTeamIds.includes(team.id);
+                    return (
+                      <button
+                        key={team.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedTeamIds((current) =>
+                            current.includes(team.id)
+                              ? current.filter((id) => id !== team.id)
+                              : [...current, team.id],
+                          )
+                        }
+                        className={`rounded-xl border px-3 py-2 text-left transition-all ${
+                          selected
+                            ? 'border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-black'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-800'
+                        }`}
+                      >
+                        <div className="text-xs font-black uppercase tracking-[0.16em]">{team.name}</div>
+                        <div className={`mt-1 text-[11px] ${selected ? 'opacity-85' : 'text-zinc-500 dark:text-zinc-400'}`}>{team.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               </div>
 
               <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-white px-6 py-5 dark:border-zinc-800 dark:bg-zinc-950">

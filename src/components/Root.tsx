@@ -13,7 +13,14 @@ import { supabase } from './supabaseClient';
 import { Login } from './Login';
 import { CommandPalette } from './CommandPalette';
 import { apiRequest, type WorkspaceDataResponse } from '../lib/api';
-import { flattenOperationalTasks, normalizeOpsCampaigns } from '../lib/operations';
+import {
+  flattenOperationalTasks,
+  normalizeOpsCampaigns,
+  type AssignmentMode,
+  type OpsCampaign,
+  type TaskPriority,
+  type TaskStatus,
+} from '../lib/operations';
 import {
   createEmptyCommunityWorkspace,
   flattenCommunityWorkspaceTasks,
@@ -21,17 +28,149 @@ import {
   type CommunityWorkspace,
 } from '../lib/communityWorkspace';
 import {
+  type CampaignIntakeRecord,
+  type LinkWidgetRecord,
+  type OrganizedUpdateRecord,
+  type ShiftHandoverRecord,
   normalizeCampaignIntakeRecords,
   normalizeLinkWidgetRecords,
   normalizeOrganizedUpdateRecords,
   normalizeShiftHandoverRecords,
 } from '../lib/workspaceTools';
-import { normalizeCoverageRecords } from '../lib/coverageTypes';
+import { normalizeCoverageRecords, type CoverageRecord } from '../lib/coverageTypes';
 import { getCurrentNavItem } from '../lib/navigation';
 import { useLocation, useNavigate } from '../lib/routerCompat';
 import { getRouteComponent, getRouteRedirect } from '../routes';
+import type { User as AppUser } from '../types';
 
-export const AppContext = React.createContext<any>(null);
+type WorkspaceRecord = {
+  id?: string | number;
+  updatedAt?: string;
+  [key: string]: unknown;
+};
+
+type TaskRecord = {
+  id: number;
+  description: string;
+  campaign: string;
+  assignedTo: string;
+  priority: string;
+  status: string;
+  category: string;
+  slaHrs: number;
+  startDateTime: string;
+  endDateTime?: string;
+  teamId?: string;
+  name?: string;
+  [key: string]: unknown;
+};
+
+type SuccessRecord = {
+  id?: string | number;
+  title?: string;
+  detail?: string;
+  agent?: string;
+  campaign?: string;
+  date?: string;
+  time?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+};
+
+type NotificationRecord = {
+  id?: string | number;
+  assignedTo?: string;
+  [key: string]: unknown;
+};
+
+type MistakeRecord = {
+  id: string;
+  taskId: string | number;
+  taskDescription: string;
+  campaign: string;
+  team: string;
+  mistakeDescription: string;
+  reportedBy: string;
+  reportedAt: string;
+  resolved: boolean;
+  resolvedBy?: string;
+  resolvedAt?: string;
+};
+
+type StandaloneTaskRecord = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  teamId: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate: string;
+  assignmentMode: AssignmentMode;
+  assignedToName: string;
+  assignedToEmail: string;
+  notes: string;
+  linkedCampaignId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  [key: string]: unknown;
+};
+
+type TeamMemberRecord = AppUser;
+type SessionLike = { user: { email?: string; user_metadata?: { name?: string } } };
+
+type AppContextValue = {
+  tasks: TaskRecord[];
+  setTasks: (value: React.SetStateAction<TaskRecord[]>) => void;
+  successLogs: SuccessRecord[];
+  setSuccessLogs: (value: React.SetStateAction<SuccessRecord[]>) => void;
+  taskNotifications: NotificationRecord[];
+  setTaskNotifications: (value: React.SetStateAction<NotificationRecord[]>) => void;
+  mistakes: MistakeRecord[];
+  setMistakes: (value: React.SetStateAction<MistakeRecord[]>) => void;
+  userEmail: string;
+  userName: string;
+  userRole: 'admin' | 'member' | null;
+  isAdmin: boolean;
+  teamMembers: TeamMemberRecord[];
+  setTeamMembers: React.Dispatch<React.SetStateAction<TeamMemberRecord[]>>;
+  refreshTeamMembers: () => Promise<void>;
+  isLoading: boolean;
+  fetchError: boolean;
+  isSaving: boolean;
+  lastSaved: Date | null;
+  lastSyncError: string | null;
+  refreshWorkspaceData: () => Promise<void>;
+  userFeatures: string[] | null;
+  setUserFeatures: React.Dispatch<React.SetStateAction<string[] | null>>;
+  tasksPerTeam: Record<string, WorkspaceRecord>;
+  setTasksPerTeam: (value: React.SetStateAction<Record<string, WorkspaceRecord>>) => void;
+  opsCampaigns: OpsCampaign[];
+  setOpsCampaigns: (value: React.SetStateAction<OpsCampaign[]>) => void;
+  communityWorkspace: CommunityWorkspace;
+  setCommunityWorkspace: (value: React.SetStateAction<CommunityWorkspace>) => void;
+  campaignIntakes: CampaignIntakeRecord[];
+  setCampaignIntakes: (value: React.SetStateAction<CampaignIntakeRecord[]>) => void;
+  organizedUpdates: OrganizedUpdateRecord[];
+  setOrganizedUpdates: (value: React.SetStateAction<OrganizedUpdateRecord[]>) => void;
+  linkWidgets: LinkWidgetRecord[];
+  setLinkWidgets: (value: React.SetStateAction<LinkWidgetRecord[]>) => void;
+  shiftHandovers: ShiftHandoverRecord[];
+  setShiftHandovers: (value: React.SetStateAction<ShiftHandoverRecord[]>) => void;
+  coverageRecords: CoverageRecord[];
+  setCoverageRecords: (value: React.SetStateAction<CoverageRecord[]>) => void;
+  operationalTasks: TaskRecord[];
+  standaloneTasks: StandaloneTaskRecord[];
+  setStandaloneTasks: (value: React.SetStateAction<StandaloneTaskRecord[]>) => void;
+  demoCompleted: boolean | null;
+  setDemoCompleted: React.Dispatch<React.SetStateAction<boolean | null>>;
+  disabledTeams: string[];
+  setDisabledTeams: React.Dispatch<React.SetStateAction<string[]>>;
+  openCommandPalette: () => void;
+};
+
+// eslint-disable-next-line react-refresh/only-export-components
+export const AppContext = React.createContext<AppContextValue | null>(null);
 
 const CAMPAIGN_INTAKES_STORAGE_KEY = 'trygc-campaign-intakes';
 const ORGANIZED_UPDATES_STORAGE_KEY = 'trygc-organized-updates';
@@ -123,21 +262,21 @@ export function Root() {
   const [userName, setUserName] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
   const [userRole, setUserRole] = useState<'admin' | 'member' | null>(null);
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([]);
   const [userFeatures, setUserFeatures] = useState<string[] | null>(null);
 
-  const [tasks, setTasks] = useState<any[]>([]);
-  const [successLogs, setSuccessLogs] = useState<any[]>([]);
-  const [taskNotifications, setTaskNotifications] = useState<any[]>([]);
-  const [mistakes, setMistakes] = useState<any[]>([]);
-  const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, any>>({});
-  const [opsCampaigns, setOpsCampaigns] = useState<any[]>([]);
+  const [tasks, setTasks] = useState<TaskRecord[]>([]);
+  const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>([]);
+  const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>([]);
+  const [mistakes, setMistakes] = useState<MistakeRecord[]>([]);
+  const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, WorkspaceRecord>>({});
+  const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>([]);
   const [communityWorkspace, setCommunityWorkspace] = useState<CommunityWorkspace>(createEmptyCommunityWorkspace());
-  const [campaignIntakes, setCampaignIntakes] = useState<any[]>([]);
-  const [organizedUpdates, setOrganizedUpdates] = useState<any[]>([]);
-  const [linkWidgets, setLinkWidgets] = useState<any[]>([]);
-  const [shiftHandovers, setShiftHandovers] = useState<any[]>([]);
-  const [coverageRecords, setCoverageRecords] = useState<any[]>([]);
+  const [campaignIntakes, setCampaignIntakes] = useState<CampaignIntakeRecord[]>([]);
+  const [organizedUpdates, setOrganizedUpdates] = useState<OrganizedUpdateRecord[]>([]);
+  const [linkWidgets, setLinkWidgets] = useState<LinkWidgetRecord[]>([]);
+  const [shiftHandovers, setShiftHandovers] = useState<ShiftHandoverRecord[]>([]);
+  const [coverageRecords, setCoverageRecords] = useState<CoverageRecord[]>([]);
   const [demoCompleted, setDemoCompleted] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedWorkspace, setHasLoadedWorkspace] = useState(false);
@@ -162,18 +301,18 @@ export function Root() {
   const workspaceRevisionRef = useRef(0);
   const communityWorkspaceRef = useRef<CommunityWorkspace>(createEmptyCommunityWorkspace());
   const workspaceSyncPayloadRef = useRef({
-    tasks: [] as any[],
-    successLogs: [] as any[],
-    taskNotifications: [] as any[],
-    mistakes: [] as any[],
-    tasksPerTeam: {} as Record<string, any>,
-    opsCampaigns: [] as any[],
-    campaignIntakes: [] as any[],
-    organizedUpdates: [] as any[],
-    linkWidgets: [] as any[],
-    shiftHandovers: [] as any[],
-    coverageRecords: [] as any[],
-    standaloneTasks: [] as any[],
+    tasks: [] as TaskRecord[],
+    successLogs: [] as SuccessRecord[],
+    taskNotifications: [] as NotificationRecord[],
+    mistakes: [] as MistakeRecord[],
+    tasksPerTeam: {} as Record<string, WorkspaceRecord>,
+    opsCampaigns: [] as OpsCampaign[],
+    campaignIntakes: [] as CampaignIntakeRecord[],
+    organizedUpdates: [] as OrganizedUpdateRecord[],
+    linkWidgets: [] as LinkWidgetRecord[],
+    shiftHandovers: [] as ShiftHandoverRecord[],
+    coverageRecords: [] as CoverageRecord[],
+    standaloneTasks: [] as StandaloneTaskRecord[],
   });
   const isAdmin = userRole === 'admin';
   const RouteComponent = useMemo(() => getRouteComponent(pathname), [pathname]);
@@ -192,32 +331,32 @@ export function Root() {
     setWorkspaceRevision((current) => current + 1);
   }, []);
 
-  const updateTasks = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateTasks = useCallback((value: React.SetStateAction<TaskRecord[]>) => {
     setTasks((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateSuccessLogs = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateSuccessLogs = useCallback((value: React.SetStateAction<SuccessRecord[]>) => {
     setSuccessLogs((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateTaskNotifications = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateTaskNotifications = useCallback((value: React.SetStateAction<NotificationRecord[]>) => {
     setTaskNotifications((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateMistakes = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateMistakes = useCallback((value: React.SetStateAction<MistakeRecord[]>) => {
     setMistakes((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateTasksPerTeam = useCallback((value: React.SetStateAction<Record<string, any>>) => {
+  const updateTasksPerTeam = useCallback((value: React.SetStateAction<Record<string, WorkspaceRecord>>) => {
     setTasksPerTeam((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateOpsCampaigns = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateOpsCampaigns = useCallback((value: React.SetStateAction<OpsCampaign[]>) => {
     setOpsCampaigns((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
@@ -226,32 +365,32 @@ export function Root() {
     setCommunityWorkspace((current) => resolveStateUpdate(value, current));
   }, []);
 
-  const updateCampaignIntakes = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateCampaignIntakes = useCallback((value: React.SetStateAction<CampaignIntakeRecord[]>) => {
     setCampaignIntakes((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateOrganizedUpdates = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateOrganizedUpdates = useCallback((value: React.SetStateAction<OrganizedUpdateRecord[]>) => {
     setOrganizedUpdates((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateLinkWidgets = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateLinkWidgets = useCallback((value: React.SetStateAction<LinkWidgetRecord[]>) => {
     setLinkWidgets((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateShiftHandovers = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateShiftHandovers = useCallback((value: React.SetStateAction<ShiftHandoverRecord[]>) => {
     setShiftHandovers((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const updateCoverageRecords = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateCoverageRecords = useCallback((value: React.SetStateAction<CoverageRecord[]>) => {
     setCoverageRecords((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
 
-  const [standaloneTasks, setStandaloneTasksState] = useState<any[]>([]);
+  const [standaloneTasks, setStandaloneTasksState] = useState<StandaloneTaskRecord[]>([]);
 
   const [disabledTeams, setDisabledTeams] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
@@ -266,7 +405,7 @@ export function Root() {
     try { window.localStorage.setItem('trygc-disabled-teams', JSON.stringify(disabledTeams)); } catch { /* ignore */ }
   }, [disabledTeams]);
 
-  const updateStandaloneTasks = useCallback((value: React.SetStateAction<any[]>) => {
+  const updateStandaloneTasks = useCallback((value: React.SetStateAction<StandaloneTaskRecord[]>) => {
     setStandaloneTasksState((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
@@ -340,7 +479,7 @@ export function Root() {
     setLastPersistedRevision(0);
   }, []);
 
-  const applySession = useCallback((session: any | null) => {
+  const applySession = useCallback((session: SessionLike | null) => {
     if (!session) {
       setIsAuthenticated(false);
       setUserEmail('');
@@ -402,7 +541,7 @@ export function Root() {
       try {
         setConnectionState((current) => (current === 'idle' ? 'loading' : current));
         const data = await apiRequest<{
-          config?: { teamMembers?: any[] };
+          config?: { teamMembers?: TeamMemberRecord[] };
           demoCompleted?: boolean;
           features?: string[] | null;
           role?: 'admin' | 'member';
@@ -442,7 +581,7 @@ export function Root() {
       let nextCommunityWorkspace = communityWorkspaceRef.current;
 
       try {
-        const communityResponse = await apiRequest<{ data?: any }>('community-team-data');
+        const communityResponse = await apiRequest<{ data?: unknown }>('community-team-data');
         nextCommunityWorkspace = normalizeCommunityWorkspace(communityResponse.data);
       } catch (error) {
         console.error('Error fetching community workspace:', error);
@@ -453,24 +592,24 @@ export function Root() {
       const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
       const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
       const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
-      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY);
+      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[];
       const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
-      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY);
-      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY);
-      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY);
-      const storedStandaloneTasks = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`);
+      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[];
+      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[];
+      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[];
+      const storedStandaloneTasks = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`) as StandaloneTaskRecord[];
 
       // Merge successLogs by id: prefer server entries, fill in any local-only ones not yet synced
-      const mergeById = (primary: any[], secondary: any[]) => {
+      const mergeById = <T extends { id?: string | number }>(primary: T[], secondary: T[]) => {
         const seen = new Set(primary.map((x) => String(x.id)));
         return [...primary, ...secondary.filter((x) => !seen.has(String(x.id)))];
       };
 
       const nextWorkspace = {
-        tasks: mergeById(data.tasks || [], storedTasks),
-        successLogs: mergeById(data.successLogs || [], storedSuccessLogs),
-        taskNotifications: mergeById(data.taskNotifications || [], storedTaskNotifications),
-        mistakes: mergeById(data.mistakes || [], storedMistakes),
+        tasks: mergeById<TaskRecord>((data.tasks || []) as TaskRecord[], storedTasks),
+        successLogs: mergeById<SuccessRecord>((data.successLogs || []) as SuccessRecord[], storedSuccessLogs),
+        taskNotifications: mergeById<NotificationRecord>((data.taskNotifications || []) as NotificationRecord[], storedTaskNotifications),
+        mistakes: mergeById<MistakeRecord>((data.mistakes || []) as MistakeRecord[], storedMistakes),
         tasksPerTeam: data.tasksPerTeam || {},
         opsCampaigns: mergeWorkspaceRecords(
           normalizeOpsCampaigns(data.opsCampaigns || []),
@@ -496,7 +635,7 @@ export function Root() {
           normalizeCoverageRecords(data.coverageRecords || []),
           storedCoverageRecords,
         ),
-        standaloneTasks: mergeById(data.standaloneTasks || [], storedStandaloneTasks),
+        standaloneTasks: mergeById<StandaloneTaskRecord>((data.standaloneTasks || []) as StandaloneTaskRecord[], storedStandaloneTasks),
       };
 
       setTasks(nextWorkspace.tasks);
@@ -523,11 +662,11 @@ export function Root() {
       console.error('Error fetching workspace data:', error);
 
       // Load from localStorage as fallback so data doesn't disappear when server is unreachable
-      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY);
-      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY);
-      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY);
+      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[];
+      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[];
+      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[];
       const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
-      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY);
+      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[];
       const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY));
       const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY));
       const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
@@ -553,7 +692,7 @@ export function Root() {
     } finally {
       setIsLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userEmail]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -751,7 +890,7 @@ export function Root() {
     return () => window.clearTimeout(timer);
   }, [saveState]);
 
-  const handleSession = (session: any) => {
+  const handleSession = (session: SessionLike) => {
     applySession(session);
   };
 
@@ -767,7 +906,7 @@ export function Root() {
     }
   };
 
-  const handleXlsxImport = (importedTasks: any[]) => {
+  const handleXlsxImport = (importedTasks: TaskRecord[]) => {
     updateTasks((current) => [...current, ...importedTasks]);
   };
 
@@ -793,7 +932,7 @@ export function Root() {
 
   const refreshTeamMembers = useCallback(async () => {
     try {
-      const data = await apiRequest<{ config?: { teamMembers?: any[] } }>('admin-config');
+      const data = await apiRequest<{ config?: { teamMembers?: TeamMemberRecord[] } }>('admin-config');
       setTeamMembers(data.config?.teamMembers || []);
     } catch (error) {
       console.error('Error refreshing team members:', error);
@@ -802,22 +941,36 @@ export function Root() {
   }, []);
 
   const operationalTasks = useMemo(
-    () => [...flattenOperationalTasks(opsCampaigns), ...flattenCommunityWorkspaceTasks(communityWorkspace)]
-      .filter((task: any) => !disabledTeams.includes(task.teamId)),
+    () =>
+      [...flattenOperationalTasks(opsCampaigns), ...flattenCommunityWorkspaceTasks(communityWorkspace)]
+        .map((task) => ({
+          ...task,
+          id: Number(task.id ?? 0),
+          description: String(task.description ?? task.title ?? ''),
+          campaign: String(task.campaign ?? ''),
+          assignedTo: String(task.assignedTo ?? ''),
+          priority: String(task.priority ?? 'Medium'),
+          status: String(task.status ?? 'Pending'),
+          category: 'category' in task ? String((task as { category?: unknown }).category ?? 'Operations') : 'Operations',
+          slaHrs: Number(task.slaHrs ?? 0),
+          startDateTime: String(task.startDateTime ?? task.createdAt ?? new Date().toISOString()),
+          endDateTime: task.endDateTime ? String(task.endDateTime) : undefined,
+        }))
+        .filter((task) => !disabledTeams.includes(task.teamId || '')) as TaskRecord[],
     [communityWorkspace, opsCampaigns, disabledTeams],
   );
 
   const unreadCount = useMemo(() => {
     let count = 0;
     count += successLogs.slice(0, 3).length;
-    count += operationalTasks.filter((task: any) => {
+    count += operationalTasks.filter((task) => {
       if (task.status === 'Done' || !task.startDateTime) return false;
       const aging = (Date.now() - new Date(task.startDateTime).getTime()) / (1000 * 60 * 60);
-      return aging > task.slaHrs;
+      return aging > (task.slaHrs || 0);
     }).slice(0, 3).length;
-    count += operationalTasks.filter((task: any) => task.status === 'Blocked').slice(0, 2).length;
+    count += operationalTasks.filter((task) => task.status === 'Blocked').slice(0, 2).length;
     count += taskNotifications
-      .filter((notification: any) => notification.assignedTo?.toLowerCase() === userEmail.toLowerCase())
+      .filter((notification: NotificationRecord) => String(notification.assignedTo || '').toLowerCase() === userEmail.toLowerCase())
       .slice(0, 5).length;
     return Math.min(count, 99);
   }, [operationalTasks, successLogs, taskNotifications, userEmail]);
@@ -1154,8 +1307,8 @@ export function Root() {
                     >
                       <option value="">Select campaign (optional)</option>
                       <option value="General">General</option>
-                      {opsCampaigns.map((c: any) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
+                      {opsCampaigns.map((c: OpsCampaign) => (
+                        <option key={String(c.id || c.name || 'campaign')} value={String(c.name || '')}>{String(c.name || '')}</option>
                       ))}
                     </select>
                     <textarea

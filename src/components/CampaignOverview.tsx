@@ -260,7 +260,7 @@ function exportPDF(
         </tr>
       </tbody>
     </table>
-  <script>window.onload=()=>{window.print()}<\/script>
+  <script>window.onload=()=>{window.print()}</script>
   </body></html>`);
   win.document.close();
 }

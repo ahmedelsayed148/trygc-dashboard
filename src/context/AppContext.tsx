@@ -12,7 +12,7 @@ function loadLocal<T>(key: string, fallback: T): T {
 }
 
 function saveLocal(key: string, data: unknown) {
-  try { localStorage.setItem(`trygc_${key}`, JSON.stringify(data)); } catch {}
+  try { localStorage.setItem(`trygc_${key}`, JSON.stringify(data)); } catch (error) { void error; }
 }
 
 const defaultUser: User = {

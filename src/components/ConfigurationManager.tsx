@@ -58,6 +58,8 @@ const NAV_ITEMS = [
 ] as const;
 
 type NavId = (typeof NAV_ITEMS)[number]['id'];
+const CONFIG_SECTIONS: ConfigCategory[] = ['system', 'campaign', 'team', 'notification', 'workspace', 'task', 'analytics', 'data', 'feature'];
+const CONFIG_AUTOSAVE_DELAY_MS = 500;
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
@@ -1422,16 +1424,24 @@ function ConfigurationPage() {
   const [localChanges, setLocalChanges] = useState<Record<string, unknown>>({});
   const [saveError, setSaveError] = useState('');
   const [statusMessage, setStatusMessage] = useState<StatusMessage>(null);
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasChanges = Object.keys(localChanges).length > 0;
 
-  const switchSection = (id: NavId) => { setActiveSection(id); setLocalChanges({}); setSaveError(''); };
+  const switchSection = (id: NavId) => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+      autosaveTimerRef.current = null;
+    }
+    setActiveSection(id);
+    setLocalChanges({});
+    setSaveError('');
+  };
 
   const handleChange = (key: string, value: unknown) => setLocalChanges((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = async () => {
     if (!hasChanges) return;
-    const configSections: ConfigCategory[] = ['system', 'campaign', 'team', 'notification', 'workspace', 'task', 'analytics', 'data', 'feature'];
-    if (!configSections.includes(activeSection as ConfigCategory)) return;
+    if (!CONFIG_SECTIONS.includes(activeSection as ConfigCategory)) return;
     setSaveError('');
     setStatusMessage(null);
     try {
@@ -1446,6 +1456,38 @@ function ConfigurationPage() {
   };
 
   const handleDiscard = () => { setLocalChanges({}); setSaveError(''); };
+
+  useEffect(() => {
+    if (!hasChanges || !CONFIG_SECTIONS.includes(activeSection as ConfigCategory)) {
+      return;
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
+    autosaveTimerRef.current = setTimeout(async () => {
+      try {
+        await updateConfig(activeSection as ConfigCategory, localChanges as Partial<AppConfiguration[ConfigCategory]>);
+        setLocalChanges({});
+        setSaveError('');
+        setStatusMessage({ tone: 'success', text: `${activeSection} changes auto-saved` });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Auto-save failed';
+        setSaveError(message);
+        setStatusMessage({ tone: 'error', text: message });
+      } finally {
+        autosaveTimerRef.current = null;
+      }
+    }, CONFIG_AUTOSAVE_DELAY_MS);
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current);
+        autosaveTimerRef.current = null;
+      }
+    };
+  }, [activeSection, hasChanges, localChanges, updateConfig]);
 
   if (!isAdmin) {
     return (
@@ -1478,7 +1520,7 @@ function ConfigurationPage() {
               <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 dark:text-zinc-400">Admin Workspace</div>
               <h1 className="mt-2 text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100 lg:text-[2rem]">Configuration Manager</h1>
               <p className="mt-2 max-w-3xl text-sm text-zinc-600 dark:text-zinc-300">
-                Centralized system, team, workflow, and desktop presentation controls. Layout changes apply to the shared shell after save.
+                Centralized system, team, workflow, and desktop presentation controls. Changes are saved automatically.
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">

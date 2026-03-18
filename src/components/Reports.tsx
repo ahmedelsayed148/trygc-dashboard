@@ -12,6 +12,35 @@ import {
   ArrowUpRight, ArrowDownRight, Minus, RefreshCw, Activity,
 } from 'lucide-react';
 
+type TaskRecord = {
+  id?: string | number;
+  campaign?: string;
+  description?: string;
+  assignedTo?: string;
+  status?: string;
+  priority?: string;
+  slaHrs?: number;
+  metricCON?: number;
+  metricCOV?: number;
+  metricTarget?: number;
+  resultSummary?: string;
+  createdAt?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+};
+
+type SuccessRecord = {
+  agent?: string;
+  date?: string;
+  [key: string]: unknown;
+};
+
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; fill?: string; stroke?: string }>;
+  label?: string;
+};
+
 // ─── Animated counter hook ───
 function useCountUp(target: number, duration = 900) {
   const [value, setValue] = useState(0);
@@ -74,12 +103,12 @@ function StatCard({
 }
 
 // ─── Custom tooltip for recharts ───
-function ChartTooltip({ active, payload, label }: any) {
+function ChartTooltip({ active, payload, label }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-xl px-3 py-2 shadow-2xl text-xs font-bold space-y-1 border border-zinc-700 dark:border-zinc-300">
       {label && <p className="text-zinc-400 dark:text-zinc-600 text-[10px] uppercase tracking-wider mb-1">{label}</p>}
-      {payload.map((p: any, i: number) => (
+      {payload.map((p, i: number) => (
         <p key={i} className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.fill || p.stroke || '#fff' }} />
           {p.name}: <span className="font-black">{p.value?.toLocaleString()}</span>
@@ -107,8 +136,8 @@ const MONO_PALETTE = ['#09090b', '#3f3f46', '#71717a', '#a1a1aa', '#d4d4d8', '#e
 
 export function Reports() {
   const ctx = useContext(AppContext);
-  const tasks       = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const successLogs = ctx?.successLogs || [];
+  const tasks = ((ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks) || []) as TaskRecord[];
+  const successLogs = (ctx?.successLogs || []) as SuccessRecord[];
   const isAdmin     = ctx?.isAdmin     || false;
   const deferredTasks = useDeferredValue(tasks);
   const deferredSuccessLogs = useDeferredValue(successLogs);
@@ -127,7 +156,7 @@ export function Reports() {
     if (dateRange === 'today') cutoff.setHours(0, 0, 0, 0);
     else if (dateRange === 'week')  cutoff.setDate(now.getDate() - 7);
     else if (dateRange === 'month') cutoff.setDate(now.getDate() - 30);
-    return deferredTasks.filter((t: any) => {
+    return deferredTasks.filter((t: TaskRecord) => {
       const d = t.createdAt || t.timestamp;
       return d ? new Date(d) >= cutoff : true;
     });
@@ -136,14 +165,14 @@ export function Reports() {
   // ─── Computed stats ───
   const stats = useMemo(() => {
     const total        = filteredTasks.length;
-    const done         = filteredTasks.filter((t: any) => t.status === 'Done').length;
-    const inProgress   = filteredTasks.filter((t: any) => t.status === 'In Progress').length;
-    const pending      = filteredTasks.filter((t: any) => t.status === 'Pending').length;
-    const blocked      = filteredTasks.filter((t: any) => t.status === 'Blocked').length;
-    const totalCON     = filteredTasks.reduce((a: number, b: any) => a + (b.metricCON    || 0), 0);
-    const totalTarget  = filteredTasks.reduce((a: number, b: any) => a + (b.metricTarget || 0), 0);
-    const highPriority = filteredTasks.filter((t: any) => t.priority === 'High').length;
-    const agents       = [...new Set(filteredTasks.map((t: any) => t.assignedTo))].filter(Boolean).length;
+    const done         = filteredTasks.filter((t: TaskRecord) => t.status === 'Done').length;
+    const inProgress   = filteredTasks.filter((t: TaskRecord) => t.status === 'In Progress').length;
+    const pending      = filteredTasks.filter((t: TaskRecord) => t.status === 'Pending').length;
+    const blocked      = filteredTasks.filter((t: TaskRecord) => t.status === 'Blocked').length;
+    const totalCON     = filteredTasks.reduce((a: number, b: TaskRecord) => a + (b.metricCON || 0), 0);
+    const totalTarget  = filteredTasks.reduce((a: number, b: TaskRecord) => a + (b.metricTarget || 0), 0);
+    const highPriority = filteredTasks.filter((t: TaskRecord) => t.priority === 'High').length;
+    const agents       = [...new Set(filteredTasks.map((t: TaskRecord) => t.assignedTo))].filter(Boolean).length;
     const completionRate  = total > 0 ? Math.round((done / total) * 100) : 0;
     const conAchievement  = totalTarget > 0 ? Math.round((totalCON / totalTarget) * 100) : 0;
     return { total, done, inProgress, pending, blocked, totalCON, totalTarget, highPriority, agents, completionRate, conAchievement };
@@ -159,9 +188,9 @@ export function Reports() {
 
   // ─── Priority distribution ───
   const priorityData = useMemo(() => {
-    const high   = filteredTasks.filter((t: any) => t.priority === 'High').length;
-    const medium = filteredTasks.filter((t: any) => t.priority === 'Medium').length;
-    const low    = filteredTasks.filter((t: any) => t.priority === 'Low').length;
+    const high   = filteredTasks.filter((t: TaskRecord) => t.priority === 'High').length;
+    const medium = filteredTasks.filter((t: TaskRecord) => t.priority === 'Medium').length;
+    const low    = filteredTasks.filter((t: TaskRecord) => t.priority === 'Low').length;
     return [
       { name: 'High',   value: high,   fill: '#09090b' },
       { name: 'Medium', value: medium, fill: '#71717a' },
@@ -172,7 +201,7 @@ export function Reports() {
   // ─── Team workload chart ───
   const teamData = useMemo(() => {
     const map: Record<string, { name: string; total: number; done: number }> = {};
-    filteredTasks.forEach((t: any) => {
+    filteredTasks.forEach((t: TaskRecord) => {
       const agent = t.assignedTo || 'Unassigned';
       if (!map[agent]) map[agent] = { name: agent.split(' ')[0], total: 0, done: 0 };
       map[agent].total++;
@@ -184,7 +213,7 @@ export function Reports() {
   // ─── Campaign distribution ───
   const campaignData = useMemo(() => {
     const map: Record<string, number> = {};
-    filteredTasks.forEach((t: any) => {
+    filteredTasks.forEach((t: TaskRecord) => {
       const c = t.campaign || 'Unknown';
       map[c] = (map[c] || 0) + 1;
     });
@@ -197,7 +226,7 @@ export function Reports() {
   // ─── Success logs over time ───
   const successTimeData = useMemo(() => {
     const buckets: Record<string, number> = {};
-    deferredSuccessLogs.forEach((s: any) => {
+    deferredSuccessLogs.forEach((s: SuccessRecord) => {
       const key = s.date || 'Today';
       buckets[key] = (buckets[key] || 0) + 1;
     });
@@ -212,7 +241,7 @@ export function Reports() {
     csv += `Generated: ${new Date().toLocaleString()}\nDate Range: ${dateRange}\n\n`;
     if (type === 'tasks') {
       csv += 'ID,Campaign,Description,Owner,Status,Priority,SLA(h),CON,COV,Target,Result\n';
-      filteredTasks.forEach((t: any) => {
+      filteredTasks.forEach((t: TaskRecord) => {
         csv += `${t.id},"${t.campaign}","${t.description}","${t.assignedTo}","${t.status}","${t.priority}",${t.slaHrs},${t.metricCON},${t.metricCOV},${t.metricTarget},"${t.resultSummary}"\n`;
       });
     } else {
@@ -524,7 +553,7 @@ export function Reports() {
                         </tr>
                       </thead>
                       <tbody>
-                        {filteredTasks.slice(0, 10).map((t: any, i: number) => (
+                        {filteredTasks.slice(0, 10).map((t: TaskRecord, i: number) => (
                           <motion.tr
                             key={t.id || i}
                             initial={{ opacity: 0, x: -8 }}
@@ -652,10 +681,12 @@ export function Reports() {
                     <ResponsiveContainer width="100%" height={200}>
                       <BarChart
                         data={Object.entries(
-                          successLogs.reduce((acc: any, s: any) => {
-                            acc[s.agent] = (acc[s.agent] || 0) + 1; return acc;
+                          successLogs.reduce((acc: Record<string, number>, s: SuccessRecord) => {
+                            const agent = String(s.agent || 'Unknown');
+                            acc[agent] = (acc[agent] || 0) + 1;
+                            return acc;
                           }, {})
-                        ).map(([name, count]) => ({ name: name.split(' ')[0], count })).sort((a: any, b: any) => b.count - a.count).slice(0, 8)}
+                        ).map(([name, count]) => ({ name: name.split(' ')[0], count })).sort((a, b) => b.count - a.count).slice(0, 8)}
                         margin={{ top: 4, right: 4, bottom: 20, left: -20 }}
                       >
                         <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" vertical={false} />

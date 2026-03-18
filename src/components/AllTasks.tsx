@@ -13,7 +13,10 @@ import {
   getAssigneeLabel,
   normalizeOpsCampaigns,
   type CampaignTeamTask,
+  type FlattenedOperationalTask,
   type OpsCampaign,
+  type TaskPriority,
+  type TaskStatus,
 } from '../lib/operations';
 
 type TaskModalState = {
@@ -28,15 +31,42 @@ type InlineEdit = {
   value: string;
 } | null;
 
+type TaskNotificationRecord = {
+  id: string;
+  type: string;
+  taskId: string;
+  taskName: string;
+  taskDescription: string;
+  assignedTo: string;
+  assignedToName: string;
+  assignedBy: string;
+  timestamp: string;
+  time: string;
+  date: string;
+  read: boolean;
+};
+
+type TeamMember = {
+  email: string;
+  name: string;
+  teamName?: string;
+};
+
+const EMPTY_CAMPAIGNS: OpsCampaign[] = [];
+const EMPTY_TEAM_MEMBERS: TeamMember[] = [];
+const EMPTY_OPERATIONAL_TASKS: FlattenedOperationalTask[] = [];
+const EMPTY_DISABLED_TEAMS: string[] = [];
+
 export function AllTasks() {
   const ctx = useContext(AppContext);
-  const opsCampaigns = normalizeOpsCampaigns(ctx?.opsCampaigns || []);
+  const opsCampaigns = normalizeOpsCampaigns(ctx?.opsCampaigns ?? EMPTY_CAMPAIGNS);
   const setOpsCampaigns = ctx?.setOpsCampaigns || (() => {});
-  const teamMembers = ctx?.teamMembers || [];
-  const operationalTasks = ctx?.operationalTasks || [];
+  const teamMembers = (ctx?.teamMembers as TeamMember[] | undefined) ?? EMPTY_TEAM_MEMBERS;
+  const operationalTasks =
+    (ctx?.operationalTasks as unknown as FlattenedOperationalTask[] | undefined) ?? EMPTY_OPERATIONAL_TASKS;
   const setTaskNotifications = ctx?.setTaskNotifications || (() => {});
   const userEmail = ctx?.userEmail || '';
-  const disabledTeams: string[] = ctx?.disabledTeams || [];
+  const disabledTeams = ctx?.disabledTeams ?? EMPTY_DISABLED_TEAMS;
 
   const [search, setSearch] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('All');
@@ -49,7 +79,7 @@ export function AllTasks() {
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
   const filteredTasks = useMemo(() => {
-    const matchingTasks = operationalTasks.filter((task: any) => {
+    const matchingTasks = operationalTasks.filter((task) => {
       const isCommunityTask = task.campaignId?.startsWith('community-');
       const matchesSearch =
         !deferredSearch ||
@@ -73,14 +103,18 @@ export function AllTasks() {
       return matchesSearch && matchesCampaign && matchesTeam && matchesStatus && matchesPriority && matchesEnabledTeam;
     });
 
-    return filterByDateRange(matchingTasks, dateRange, (task: any) => task.dueDate || task.updatedAt || task.createdAt);
+    return filterByDateRange(
+      matchingTasks,
+      dateRange,
+      (task) => task.dueDate || task.updatedAt || task.createdAt,
+    );
   }, [campaignFilter, dateRange, deferredSearch, disabledTeams, operationalTasks, priorityFilter, statusFilter, teamFilter]);
 
   const summary = useMemo(() => ({
     total: filteredTasks.length,
-    done: filteredTasks.filter((task: any) => task.status === 'Done').length,
-    blocked: filteredTasks.filter((task: any) => task.status === 'Blocked').length,
-    assigned: filteredTasks.filter((task: any) => task.assignmentMode !== 'unassigned').length,
+    done: filteredTasks.filter((task) => task.status === 'Done').length,
+    blocked: filteredTasks.filter((task) => task.status === 'Blocked').length,
+    assigned: filteredTasks.filter((task) => task.assignmentMode !== 'unassigned').length,
   }), [filteredTasks]);
 
   const defaultCampaign = opsCampaigns.find((campaign) => campaign.id === campaignFilter) || opsCampaigns[0];
@@ -103,7 +137,7 @@ export function AllTasks() {
       }),
     );
     if (campaign) {
-      setTaskNotifications((current: any[]) =>
+      setTaskNotifications((current: TaskNotificationRecord[]) =>
         appendAssignmentNotification({
           currentNotifications: current,
           previousTask: taskModalState.task,
@@ -141,9 +175,19 @@ export function AllTasks() {
 
   const commitInlineEdit = () => {
     if (!inlineEdit) return;
-    const task = operationalTasks.find((t: any) => t.id === inlineEdit.taskId) as any;
+    const task = operationalTasks.find((candidate) => candidate.id === inlineEdit.taskId);
     if (!task) { setInlineEdit(null); return; }
-    patchTask(task.campaignId, task.teamId, task.id, { [inlineEdit.field]: inlineEdit.value } as any);
+
+    const patch: Partial<CampaignTeamTask> = {};
+    if (inlineEdit.field === 'status') {
+      patch.status = inlineEdit.value as TaskStatus;
+    } else if (inlineEdit.field === 'priority') {
+      patch.priority = inlineEdit.value as TaskPriority;
+    } else {
+      patch.dueDate = inlineEdit.value;
+    }
+
+    patchTask(task.campaignId, task.teamId, task.id, patch);
     toast.success('Task updated');
     setInlineEdit(null);
   };
@@ -157,7 +201,6 @@ export function AllTasks() {
           updatedAt: new Date().toISOString(),
           teamPlans: campaign.teamPlans.map((plan) => {
             if (plan.teamId !== teamId) return plan;
-            if (plan.tasks.length <= 1) { toast.error('Each campaign team must keep at least one task'); return plan; }
             return { ...plan, tasks: plan.tasks.filter((task) => task.id !== taskId) };
           }),
         };
@@ -231,7 +274,7 @@ export function AllTasks() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTasks.map((task: any) => (
+                {filteredTasks.map((task) => (
                   <tr key={task.id} className="border-b border-zinc-100 text-sm last:border-b-0 dark:border-zinc-900 group">
                     <td className="px-6 py-5">
                       <div className="font-black text-zinc-900 dark:text-zinc-100">{task.campaign}</div>

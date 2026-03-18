@@ -19,6 +19,22 @@ interface Mistake {
   resolvedAt?: string;
 }
 
+type TaskLike = {
+  id: string | number;
+  title?: string;
+  description?: string;
+  campaign?: string;
+  assignedTo?: string;
+};
+
+type WorkspaceRecord = {
+  [key: string]: unknown;
+};
+
+const EMPTY_TASKS: TaskLike[] = [];
+const EMPTY_MISTAKES: Mistake[] = [];
+const EMPTY_TASKS_PER_TEAM: Record<string, WorkspaceRecord> = {};
+
 type AddForm = {
   taskSource: 'campaign' | 'manual';
   selectedTaskId: string;
@@ -39,11 +55,13 @@ const emptyAddForm = (): AddForm => ({
 
 export function MistakeLogger() {
   const ctx = useContext(AppContext);
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const tasksPerTeam = ctx?.tasksPerTeam || {};
+  const tasks = (ctx?.operationalTasks?.length
+    ? ctx.operationalTasks
+    : ctx?.tasks) as TaskLike[] | undefined ?? EMPTY_TASKS;
+  const tasksPerTeam = (ctx?.tasksPerTeam as Record<string, WorkspaceRecord> | undefined) ?? EMPTY_TASKS_PER_TEAM;
   const userName = ctx?.userName || '';
   const userEmail = ctx?.userEmail || '';
-  const mistakes = ctx?.mistakes || [];
+  const mistakes = (ctx?.mistakes as Mistake[] | undefined) ?? EMPTY_MISTAKES;
   const setMistakes = ctx?.setMistakes;
 
   const [search, setSearch] = useState('');
@@ -60,20 +78,20 @@ export function MistakeLogger() {
   const allTeams = useMemo(() => {
     const s = new Set<string>();
     mistakes.forEach((m: Mistake) => { if (m.team) s.add(m.team); });
-    tasks.forEach((t: any) => { if (t.assignedTo) s.add(t.assignedTo); });
+    tasks.forEach((t) => { if (t.assignedTo) s.add(t.assignedTo); });
     return Array.from(s).sort();
   }, [mistakes, tasks]);
 
   const allCampaigns = useMemo(() => {
     const s = new Set<string>();
     mistakes.forEach((m: Mistake) => { if (m.campaign) s.add(m.campaign); });
-    tasks.forEach((t: any) => { if (t.campaign) s.add(t.campaign); });
+    tasks.forEach((t) => { if (t.campaign) s.add(t.campaign); });
     return Array.from(s).sort();
   }, [mistakes, tasks]);
 
   const allTeamTasks = useMemo(() => {
     const list: Array<{ team: string; task: string; key: string }> = [];
-    Object.entries(tasksPerTeam).forEach(([key, data]: [string, any]) => {
+    Object.entries(tasksPerTeam).forEach(([key, data]) => {
       const [teamId, taskName] = key.split('::');
       if (teamId && taskName && data) list.push({ team: teamId, task: taskName, key });
     });
@@ -113,7 +131,7 @@ export function MistakeLogger() {
     let campaign = form.campaign.trim();
 
     if (form.taskSource === 'campaign' && form.selectedTaskId) {
-      const t = tasks.find((t: any) => String(t.id) === form.selectedTaskId) as any;
+      const t = tasks.find((task) => String(task.id) === form.selectedTaskId);
       if (t) { taskDescription = t.description || t.title || taskDescription; campaign = t.campaign || campaign; }
     }
 
@@ -214,7 +232,7 @@ export function MistakeLogger() {
               options={[['', 'All Teams'], ...allTeams.map((t): [string, string] => [t, t])]} />
             <FilterSelect label="Campaign" value={filterCampaign} onChange={setFilterCampaign}
               options={[['', 'All Campaigns'], ...allCampaigns.map((c): [string, string] => [c, c])]} />
-            <FilterSelect label="Status" value={filterResolved} onChange={(v) => setFilterResolved(v as any)}
+            <FilterSelect label="Status" value={filterResolved} onChange={(v) => setFilterResolved(v as 'all' | 'resolved' | 'unresolved')}
               options={[['all', 'All'], ['unresolved', 'Unresolved'], ['resolved', 'Resolved']]} />
           </div>
           <div className="mt-4">
@@ -391,7 +409,7 @@ export function MistakeLogger() {
                     className="w-full px-4 py-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-sm font-medium focus:outline-none"
                   >
                     <option value="">Choose a task…</option>
-                    {tasks.map((t: any) => (
+                    {tasks.map((t) => (
                       <option key={t.id} value={String(t.id)}>
                         {t.campaign} — {t.description || t.title}
                       </option>
