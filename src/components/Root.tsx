@@ -38,6 +38,9 @@ const ORGANIZED_UPDATES_STORAGE_KEY = 'trygc-organized-updates';
 const LINK_WIDGETS_STORAGE_KEY = 'trygc-link-widgets';
 const SHIFT_HANDOVERS_STORAGE_KEY = 'trygc-shift-handovers';
 const COVERAGE_RECORDS_STORAGE_KEY = 'trygc-coverage-records';
+const TASKS_STORAGE_KEY = 'trygc-tasks';
+const OPS_CAMPAIGNS_STORAGE_KEY = 'trygc-ops-campaigns';
+const TASK_NOTIFICATIONS_STORAGE_KEY = 'trygc-task-notifications';
 const SUCCESS_LOGS_STORAGE_KEY = 'trygc-success-logs';
 const MISTAKES_STORAGE_KEY = 'trygc-mistakes';
 const SIDEBAR_COLLAPSED_STORAGE_KEY = 'trygc-sidebar-collapsed';
@@ -158,6 +161,20 @@ export function Root() {
   const hasInitialNavigated = useRef(false);
   const workspaceRevisionRef = useRef(0);
   const communityWorkspaceRef = useRef<CommunityWorkspace>(createEmptyCommunityWorkspace());
+  const workspaceSyncPayloadRef = useRef({
+    tasks: [] as any[],
+    successLogs: [] as any[],
+    taskNotifications: [] as any[],
+    mistakes: [] as any[],
+    tasksPerTeam: {} as Record<string, any>,
+    opsCampaigns: [] as any[],
+    campaignIntakes: [] as any[],
+    organizedUpdates: [] as any[],
+    linkWidgets: [] as any[],
+    shiftHandovers: [] as any[],
+    coverageRecords: [] as any[],
+    standaloneTasks: [] as any[],
+  });
   const isAdmin = userRole === 'admin';
   const RouteComponent = useMemo(() => getRouteComponent(pathname), [pathname]);
   const currentNavItem = useMemo(() => getCurrentNavItem(pathname), [pathname]);
@@ -253,6 +270,36 @@ export function Root() {
     setStandaloneTasksState((current) => resolveStateUpdate(value, current));
     markWorkspaceDirty();
   }, [markWorkspaceDirty]);
+
+  useEffect(() => {
+    workspaceSyncPayloadRef.current = {
+      tasks,
+      successLogs,
+      taskNotifications,
+      mistakes,
+      tasksPerTeam,
+      opsCampaigns,
+      campaignIntakes,
+      organizedUpdates,
+      linkWidgets,
+      shiftHandovers,
+      coverageRecords,
+      standaloneTasks,
+    };
+  }, [
+    campaignIntakes,
+    coverageRecords,
+    linkWidgets,
+    mistakes,
+    opsCampaigns,
+    organizedUpdates,
+    shiftHandovers,
+    standaloneTasks,
+    successLogs,
+    taskNotifications,
+    tasks,
+    tasksPerTeam,
+  ]);
 
   // Standalone tasks are loaded via refreshWorkspaceData (server + localStorage merge).
   // This effect is a safety-net for first-load before the server responds.
@@ -406,6 +453,9 @@ export function Root() {
       const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
       const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
       const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
+      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY);
+      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
+      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY);
       const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY);
       const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY);
       const storedStandaloneTasks = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`);
@@ -417,12 +467,15 @@ export function Root() {
       };
 
       const nextWorkspace = {
-        tasks: data.tasks || [],
+        tasks: mergeById(data.tasks || [], storedTasks),
         successLogs: mergeById(data.successLogs || [], storedSuccessLogs),
-        taskNotifications: data.taskNotifications || [],
+        taskNotifications: mergeById(data.taskNotifications || [], storedTaskNotifications),
         mistakes: mergeById(data.mistakes || [], storedMistakes),
         tasksPerTeam: data.tasksPerTeam || {},
-        opsCampaigns: normalizeOpsCampaigns(data.opsCampaigns || []),
+        opsCampaigns: mergeWorkspaceRecords(
+          normalizeOpsCampaigns(data.opsCampaigns || []),
+          storedOpsCampaigns,
+        ),
         campaignIntakes: mergeWorkspaceRecords(
           normalizeCampaignIntakeRecords(data.campaignIntakes || []),
           storedCampaignIntakes,
@@ -472,12 +525,18 @@ export function Root() {
       // Load from localStorage as fallback so data doesn't disappear when server is unreachable
       const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY);
       const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY);
+      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY);
+      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
+      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY);
       const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY));
       const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY));
       const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
       const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
       const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
 
+      if (storedTasks.length > 0) setTasks(storedTasks);
+      if (storedTaskNotifications.length > 0) setTaskNotifications(storedTaskNotifications);
+      if (storedOpsCampaigns.length > 0) setOpsCampaigns(storedOpsCampaigns);
       if (storedSuccessLogs.length > 0) setSuccessLogs(storedSuccessLogs);
       if (storedMistakes.length > 0) setMistakes(storedMistakes);
       if (storedCampaignIntakes.length > 0) setCampaignIntakes(storedCampaignIntakes);
@@ -556,20 +615,7 @@ export function Root() {
       try {
         await apiRequest('workspace', {
           method: 'POST',
-          body: {
-            tasks,
-            successLogs,
-            taskNotifications,
-            mistakes,
-            tasksPerTeam,
-            opsCampaigns,
-            campaignIntakes,
-            organizedUpdates,
-            linkWidgets,
-            shiftHandovers,
-            coverageRecords,
-            standaloneTasks,
-          },
+          body: workspaceSyncPayloadRef.current,
         });
 
         setLastSaved(new Date());
@@ -591,18 +637,6 @@ export function Root() {
     hasLoadedWorkspace,
     isAuthenticated,
     isLoading,
-    mistakes,
-    successLogs,
-    taskNotifications,
-    tasks,
-    tasksPerTeam,
-    opsCampaigns,
-    campaignIntakes,
-    organizedUpdates,
-    linkWidgets,
-    shiftHandovers,
-    coverageRecords,
-    standaloneTasks,
     workspaceRevision,
     lastPersistedRevision,
   ]);
@@ -624,6 +658,30 @@ export function Root() {
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedWorkspace) {
+      return;
+    }
+
+    writeStoredWorkspaceRecords(TASKS_STORAGE_KEY, tasks);
+  }, [tasks, hasLoadedWorkspace, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedWorkspace) {
+      return;
+    }
+
+    writeStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY, taskNotifications);
+  }, [taskNotifications, hasLoadedWorkspace, isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedWorkspace) {
+      return;
+    }
+
+    writeStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY, opsCampaigns);
+  }, [opsCampaigns, hasLoadedWorkspace, isAuthenticated]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasLoadedWorkspace) {
@@ -749,33 +807,42 @@ export function Root() {
     [communityWorkspace, opsCampaigns, disabledTeams],
   );
 
-  if (checkingSession) {
-    return (
-      <div className="app-shell-background min-h-screen flex items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-5 rounded-[var(--app-card-radius)] border border-zinc-200 bg-white/90 px-8 py-7 text-center shadow-xl dark:border-zinc-800 dark:bg-zinc-950/90">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center shadow-xl">
-              <Trophy className="w-5 h-5 text-white dark:text-zinc-900" />
-            </div>
-            <div>
-              <div className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Trygc OPS</div>
-              <div className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500">Command Center</div>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span className="text-xs font-bold uppercase tracking-widest">Checking session…</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const unreadCount = useMemo(() => {
+    let count = 0;
+    count += successLogs.slice(0, 3).length;
+    count += operationalTasks.filter((task: any) => {
+      if (task.status === 'Done' || !task.startDateTime) return false;
+      const aging = (Date.now() - new Date(task.startDateTime).getTime()) / (1000 * 60 * 60);
+      return aging > task.slaHrs;
+    }).slice(0, 3).length;
+    count += operationalTasks.filter((task: any) => task.status === 'Blocked').slice(0, 2).length;
+    count += taskNotifications
+      .filter((notification: any) => notification.assignedTo?.toLowerCase() === userEmail.toLowerCase())
+      .slice(0, 5).length;
+    return Math.min(count, 99);
+  }, [operationalTasks, successLogs, taskNotifications, userEmail]);
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleSession} />;
-  }
+  const openCommandPalette = useCallback(() => {
+    setIsCommandPaletteOpen(true);
+  }, []);
 
-  const contextValue = {
+  const openMobileMenu = useCallback(() => {
+    setIsMobileSidebarOpen(true);
+  }, []);
+
+  const toggleSidebarCollapse = useCallback(() => {
+    setIsSidebarCollapsed((current) => !current);
+  }, []);
+
+  const openUpload = useCallback(() => {
+    setIsXlsxUploaderOpen(true);
+  }, []);
+
+  const openSuccess = useCallback(() => {
+    setIsSuccessModalOpen(true);
+  }, []);
+
+  const contextValue = useMemo(() => ({
     tasks,
     setTasks: updateTasks,
     successLogs,
@@ -822,8 +889,81 @@ export function Root() {
     setDemoCompleted,
     disabledTeams,
     setDisabledTeams,
-    openCommandPalette: () => setIsCommandPaletteOpen(true),
-  };
+    openCommandPalette,
+  }), [
+    campaignIntakes,
+    communityWorkspace,
+    coverageRecords,
+    demoCompleted,
+    disabledTeams,
+    fetchError,
+    isAdmin,
+    isLoading,
+    lastSaved,
+    lastSyncError,
+    linkWidgets,
+    mistakes,
+    openCommandPalette,
+    operationalTasks,
+    opsCampaigns,
+    organizedUpdates,
+    refreshTeamMembers,
+    refreshWorkspaceData,
+    saveState,
+    setDemoCompleted,
+    setTeamMembers,
+    setUserFeatures,
+    shiftHandovers,
+    standaloneTasks,
+    successLogs,
+    taskNotifications,
+    tasks,
+    tasksPerTeam,
+    teamMembers,
+    updateCampaignIntakes,
+    updateCommunityWorkspace,
+    updateCoverageRecords,
+    updateLinkWidgets,
+    updateMistakes,
+    updateOpsCampaigns,
+    updateOrganizedUpdates,
+    updateShiftHandovers,
+    updateStandaloneTasks,
+    updateSuccessLogs,
+    updateTaskNotifications,
+    updateTasks,
+    updateTasksPerTeam,
+    userEmail,
+    userFeatures,
+    userName,
+    userRole,
+  ]);
+
+  if (checkingSession) {
+    return (
+      <div className="app-shell-background min-h-screen flex items-center justify-center px-6">
+        <div className="flex flex-col items-center gap-5 rounded-[var(--app-card-radius)] border border-zinc-200 bg-white/90 px-8 py-7 text-center shadow-xl dark:border-zinc-800 dark:bg-zinc-950/90">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center shadow-xl">
+              <Trophy className="w-5 h-5 text-white dark:text-zinc-900" />
+            </div>
+            <div>
+              <div className="text-xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">Trygc OPS</div>
+              <div className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500">Command Center</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-zinc-500 dark:text-zinc-400">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <span className="text-xs font-bold uppercase tracking-widest">Checking session…</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleSession} />;
+  }
 
   return (
     <AppContext.Provider value={contextValue}>
@@ -839,7 +979,7 @@ export function Root() {
               isCollapsed={isSidebarCollapsed}
               mobileOpen={isMobileSidebarOpen}
               onMobileOpenChange={setIsMobileSidebarOpen}
-              onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              onToggleCollapse={toggleSidebarCollapse}
             />
 
             <motion.div layout className="flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -848,15 +988,16 @@ export function Root() {
                 currentPageDescription={currentNavItem.description}
                 currentPageLabel={currentNavItem.label}
                 lastSyncError={lastSyncError}
-                onOpenCommandPalette={() => setIsCommandPaletteOpen(true)}
-                onOpenMobileMenu={() => setIsMobileSidebarOpen(true)}
+                onOpenCommandPalette={openCommandPalette}
+                onOpenMobileMenu={openMobileMenu}
                 userName={userName}
                 userEmail={userEmail}
                 isAdmin={isAdmin}
                 onLogout={handleLogout}
                 onRefreshWorkspace={refreshWorkspaceData}
-                onOpenUpload={() => setIsXlsxUploaderOpen(true)}
-                onOpenSuccess={() => setIsSuccessModalOpen(true)}
+                onOpenUpload={openUpload}
+                onOpenSuccess={openSuccess}
+                unreadCount={unreadCount}
                 saveState={saveState}
                 lastSaved={lastSaved}
               />
@@ -940,7 +1081,7 @@ export function Root() {
 
             {isAdmin && (
               <button
-                onClick={() => setIsXlsxUploaderOpen(true)}
+                onClick={openUpload}
                 className="fixed bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center rounded-full bg-black text-white shadow-2xl transition-all hover:bg-zinc-800 sm:bottom-6 sm:right-6 sm:h-12 sm:w-12 dark:bg-white dark:text-black dark:hover:bg-zinc-200 sm:hover:w-auto sm:hover:gap-2 sm:hover:px-5 group"
                 title="Upload XLSX"
               >
@@ -965,8 +1106,8 @@ export function Root() {
               isAdmin={isAdmin}
               isOpen={isCommandPaletteOpen}
               onClose={() => setIsCommandPaletteOpen(false)}
-              onOpenSuccess={() => setIsSuccessModalOpen(true)}
-              onOpenUpload={() => setIsXlsxUploaderOpen(true)}
+              onOpenSuccess={openSuccess}
+              onOpenUpload={openUpload}
               onRefreshWorkspace={refreshWorkspaceData}
               userEmail={userEmail}
               userFeatures={userFeatures}

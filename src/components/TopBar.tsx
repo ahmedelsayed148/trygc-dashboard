@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useRef, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Bell,
   CheckCircle2,
@@ -17,7 +17,6 @@ import {
 } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { NotificationPanel } from './NotificationPanel';
-import { AppContext } from './Root';
 import { useNavigate } from '../lib/routerCompat';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +38,7 @@ interface TopBarProps {
   onRefreshWorkspace: () => void;
   onOpenUpload: () => void;
   onOpenSuccess: () => void;
+  unreadCount: number;
   saveState: 'idle' | 'saving' | 'saved' | 'error';
   lastSaved: Date | null;
 }
@@ -77,34 +77,15 @@ export function TopBar({
   onRefreshWorkspace,
   onOpenUpload,
   onOpenSuccess,
+  unreadCount,
   saveState,
   lastSaved,
 }: TopBarProps) {
-  const ctx = useContext(AppContext);
   const navigate = useNavigate();
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSOPOpen, setIsSOPOpen] = useState(false);
   const notifButtonRef = useRef<HTMLButtonElement | null>(null);
-
-  // Count unread notifications from context
-  const unreadCount = useMemo(() => {
-    const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-    const successLogs = ctx?.successLogs || [];
-    const taskNotifications = ctx?.taskNotifications || [];
-    let count = 0;
-    count += successLogs.slice(0, 3).length;
-    count += tasks.filter((t: any) => {
-      if (t.status === 'Done' || !t.startDateTime) return false;
-      const aging = (new Date().getTime() - new Date(t.startDateTime).getTime()) / (1000 * 60 * 60);
-      return aging > t.slaHrs;
-    }).slice(0, 3).length;
-    count += tasks.filter((t: any) => t.status === 'Blocked').slice(0, 2).length;
-    count += taskNotifications
-      .filter((n: any) => n.assignedTo?.toLowerCase() === userEmail.toLowerCase())
-      .slice(0, 5).length;
-    return Math.min(count, 99);
-  }, [ctx, userEmail]);
 
   const connectionLabel = useMemo(() => {
     if (saveState === 'saving') return 'Saving…';
