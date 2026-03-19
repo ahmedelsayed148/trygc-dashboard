@@ -2,6 +2,7 @@ export const WORKSPACE_STORAGE_KEYS = {
   campaignIntakes: 'trygc-campaign-intakes',
   communityWorkspace: 'trygc-community-workspace',
   coverageRecords: 'trygc-coverage-records',
+  disabledTeams: 'trygc-disabled-teams',
   demoCompleted: 'trygc-demo-completed',
   linkWidgets: 'trygc-link-widgets',
   mistakes: 'trygc-mistakes',
@@ -12,6 +13,7 @@ export const WORKSPACE_STORAGE_KEYS = {
   successLogs: 'trygc-success-logs',
   taskNotifications: 'trygc-task-notifications',
   tasks: 'trygc-tasks',
+  tasksPerTeam: 'trygc-tasks-per-team',
 } as const;
 
 type PersistableWorkspaceSnapshot = {
@@ -27,6 +29,7 @@ type PersistableWorkspaceSnapshot = {
   successLogs: unknown;
   taskNotifications: unknown;
   tasks: unknown;
+  tasksPerTeam: unknown;
   userEmail: string;
 };
 
@@ -84,6 +87,7 @@ export function writeStoredWorkspaceValue(key: string, value: unknown) {
 export function persistWorkspaceSnapshot(snapshot: PersistableWorkspaceSnapshot) {
   writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.tasks, snapshot.tasks);
   writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.taskNotifications, snapshot.taskNotifications);
+  writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.tasksPerTeam, snapshot.tasksPerTeam);
   writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.opsCampaigns, snapshot.opsCampaigns);
   writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.campaignIntakes, snapshot.campaignIntakes);
   writeStoredWorkspaceValue(WORKSPACE_STORAGE_KEYS.organizedUpdates, snapshot.organizedUpdates);

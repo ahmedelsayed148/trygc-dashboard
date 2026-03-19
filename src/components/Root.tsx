@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, Loader2, RefreshCw, Trophy, UploadCloud, X } from 'lucide-react';
 import { Sidebar } from './Sidebar';
@@ -126,6 +126,22 @@ type StandaloneTaskRecord = {
   [key: string]: unknown;
 };
 
+type WorkspaceSnapshot = {
+  tasks: TaskRecord[];
+  successLogs: SuccessRecord[];
+  taskNotifications: NotificationRecord[];
+  mistakes: MistakeRecord[];
+  tasksPerTeam: Record<string, WorkspaceRecord>;
+  opsCampaigns: OpsCampaign[];
+  communityWorkspace: CommunityWorkspace;
+  campaignIntakes: CampaignIntakeRecord[];
+  organizedUpdates: OrganizedUpdateRecord[];
+  linkWidgets: LinkWidgetRecord[];
+  shiftHandovers: ShiftHandoverRecord[];
+  coverageRecords: CoverageRecord[];
+  standaloneTasks: StandaloneTaskRecord[];
+};
+
 type TeamMemberRecord = AppUser;
 type SessionLike = { user: { email?: string; user_metadata?: { name?: string } } };
 
@@ -190,6 +206,22 @@ function resolveStateUpdate<T>(value: React.SetStateAction<T>, current: T): T {
   return typeof value === 'function' ? (value as (previous: T) => T)(current) : value;
 }
 
+function hasRecords(value: unknown) {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function hasObjectValues(value: unknown) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value) && Object.keys(value as Record<string, unknown>).length > 0;
+}
+
+function preferLocalRecords<T>(remote: T[], local: T[]) {
+  return hasRecords(remote) || !hasRecords(local) ? remote : local;
+}
+
+function preferLocalObject<T extends Record<string, WorkspaceRecord>>(remote: T, local: T) {
+  return hasObjectValues(remote) || !hasObjectValues(local) ? remote : local;
+}
+
 function RouteLoadingFallback() {
   return (
     <div className="flex min-h-[50vh] items-center justify-center">
@@ -216,7 +248,9 @@ export function Root() {
   const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>(() => readStoredWorkspaceRecords<SuccessRecord>(WORKSPACE_STORAGE_KEYS.successLogs));
   const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>(() => readStoredWorkspaceRecords<NotificationRecord>(WORKSPACE_STORAGE_KEYS.taskNotifications));
   const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => readStoredWorkspaceRecords<MistakeRecord>(WORKSPACE_STORAGE_KEYS.mistakes));
-  const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, WorkspaceRecord>>({});
+  const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, WorkspaceRecord>>(() =>
+    readStoredWorkspaceObject<Record<string, WorkspaceRecord>>(WORKSPACE_STORAGE_KEYS.tasksPerTeam, {}),
+  );
   const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>(() => normalizeOpsCampaigns(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.opsCampaigns)));
   const [communityWorkspace, setCommunityWorkspace] = useState<CommunityWorkspace>(() => {
     const stored = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
@@ -348,14 +382,14 @@ export function Root() {
   const [disabledTeams, setDisabledTeams] = useState<string[]>(() => {
     if (typeof window === 'undefined') return [];
     try {
-      const raw = window.localStorage.getItem('trygc-disabled-teams');
+      const raw = window.localStorage.getItem(WORKSPACE_STORAGE_KEYS.disabledTeams);
       return raw ? JSON.parse(raw) : [];
     } catch { return []; }
   });
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try { window.localStorage.setItem('trygc-disabled-teams', JSON.stringify(disabledTeams)); } catch { /* ignore */ }
+    try { window.localStorage.setItem(WORKSPACE_STORAGE_KEYS.disabledTeams, JSON.stringify(disabledTeams)); } catch { /* ignore */ }
   }, [disabledTeams]);
 
   const updateStandaloneTasks = useCallback((value: React.SetStateAction<StandaloneTaskRecord[]>) => {
@@ -405,6 +439,24 @@ export function Root() {
     if (!userEmail || !hasLoadedWorkspace) return;
     writeStoredWorkspaceValue(getStandaloneTasksStorageKey(userEmail), standaloneTasks);
   }, [standaloneTasks, userEmail, hasLoadedWorkspace]);
+
+  const applyWorkspaceSnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
+    startTransition(() => {
+      setTasks(snapshot.tasks);
+      setSuccessLogs(snapshot.successLogs);
+      setTaskNotifications(snapshot.taskNotifications);
+      setMistakes(snapshot.mistakes);
+      setTasksPerTeam(snapshot.tasksPerTeam);
+      setOpsCampaigns(snapshot.opsCampaigns);
+      setCommunityWorkspace(snapshot.communityWorkspace);
+      setCampaignIntakes(snapshot.campaignIntakes);
+      setOrganizedUpdates(snapshot.organizedUpdates);
+      setLinkWidgets(snapshot.linkWidgets);
+      setShiftHandovers(snapshot.shiftHandovers);
+      setCoverageRecords(snapshot.coverageRecords);
+      setStandaloneTasksState(snapshot.standaloneTasks);
+    });
+  }, []);
 
   const resetWorkspaceState = useCallback(() => {
     communityWorkspaceRef.current = createEmptyCommunityWorkspace();
@@ -579,58 +631,54 @@ export function Root() {
       const storedMistakes = readStoredWorkspaceRecords<MistakeRecord>(WORKSPACE_STORAGE_KEYS.mistakes);
       const storedStandaloneTasks = readStoredWorkspaceRecords<StandaloneTaskRecord>(getStandaloneTasksStorageKey(userEmail));
 
-      const nextWorkspace = {
-        tasks: mergeWorkspaceRecordsByIdentity<TaskRecord>((data.tasks || []) as TaskRecord[], storedTasks),
-        successLogs: mergeWorkspaceRecordsByIdentity<SuccessRecord>((data.successLogs || []) as SuccessRecord[], storedSuccessLogs),
-        taskNotifications: mergeWorkspaceRecordsByIdentity<NotificationRecord>((data.taskNotifications || []) as NotificationRecord[], storedTaskNotifications),
-        mistakes: mergeWorkspaceRecordsByIdentity<MistakeRecord>((data.mistakes || []) as MistakeRecord[], storedMistakes),
-        tasksPerTeam: (data.tasksPerTeam || {}) as Record<string, WorkspaceRecord>,
+      const nextWorkspace: WorkspaceSnapshot = {
+        tasks: mergeWorkspaceRecordsByIdentity<TaskRecord>(preferLocalRecords((data.tasks || []) as TaskRecord[], storedTasks), storedTasks),
+        successLogs: mergeWorkspaceRecordsByIdentity<SuccessRecord>(preferLocalRecords((data.successLogs || []) as SuccessRecord[], storedSuccessLogs), storedSuccessLogs),
+        taskNotifications: mergeWorkspaceRecordsByIdentity<NotificationRecord>(
+          preferLocalRecords((data.taskNotifications || []) as NotificationRecord[], storedTaskNotifications),
+          storedTaskNotifications,
+        ),
+        mistakes: mergeWorkspaceRecordsByIdentity<MistakeRecord>(preferLocalRecords((data.mistakes || []) as MistakeRecord[], storedMistakes), storedMistakes),
+        tasksPerTeam: preferLocalObject(
+          ((data.tasksPerTeam || {}) as Record<string, WorkspaceRecord>),
+          readStoredWorkspaceObject<Record<string, WorkspaceRecord>>(WORKSPACE_STORAGE_KEYS.tasksPerTeam, {}),
+        ),
         opsCampaigns: mergeWorkspaceRecords(
-          normalizeOpsCampaigns(data.opsCampaigns || []),
+          normalizeOpsCampaigns(preferLocalRecords(data.opsCampaigns || [], storedOpsCampaigns)),
           storedOpsCampaigns,
         ),
         campaignIntakes: mergeWorkspaceRecords(
-          normalizeCampaignIntakeRecords(data.campaignIntakes || []),
+          normalizeCampaignIntakeRecords(preferLocalRecords(data.campaignIntakes || [], storedCampaignIntakes)),
           storedCampaignIntakes,
         ),
         organizedUpdates: mergeWorkspaceRecords(
-          normalizeOrganizedUpdateRecords(data.organizedUpdates || []),
+          normalizeOrganizedUpdateRecords(preferLocalRecords(data.organizedUpdates || [], storedOrganizedUpdates)),
           storedOrganizedUpdates,
         ),
         linkWidgets: mergeWorkspaceRecords(
-          normalizeLinkWidgetRecords(data.linkWidgets || []),
+          normalizeLinkWidgetRecords(preferLocalRecords(data.linkWidgets || [], storedLinkWidgets)),
           storedLinkWidgets,
         ),
         shiftHandovers: mergeWorkspaceRecords(
-          normalizeShiftHandoverRecords(data.shiftHandovers || []),
+          normalizeShiftHandoverRecords(preferLocalRecords(data.shiftHandovers || [], storedShiftHandovers)),
           storedShiftHandovers,
         ),
         coverageRecords: mergeWorkspaceRecords(
-          normalizeCoverageRecords(data.coverageRecords || []),
+          normalizeCoverageRecords(preferLocalRecords(data.coverageRecords || [], storedCoverageRecords)),
           storedCoverageRecords,
         ),
-        standaloneTasks: mergeWorkspaceRecordsByIdentity<StandaloneTaskRecord>((data.standaloneTasks || []) as StandaloneTaskRecord[], storedStandaloneTasks),
+        communityWorkspace: nextCommunityWorkspace,
+        standaloneTasks: mergeWorkspaceRecordsByIdentity<StandaloneTaskRecord>(
+          preferLocalRecords((data.standaloneTasks || []) as StandaloneTaskRecord[], storedStandaloneTasks),
+          storedStandaloneTasks,
+        ),
       };
 
       if (requestId !== refreshRequestIdRef.current) {
         return;
       }
 
-      setTasks(nextWorkspace.tasks);
-      setSuccessLogs(nextWorkspace.successLogs);
-      setTaskNotifications(nextWorkspace.taskNotifications);
-      setMistakes(nextWorkspace.mistakes);
-      setTasksPerTeam(nextWorkspace.tasksPerTeam);
-      setOpsCampaigns(nextWorkspace.opsCampaigns);
-      setCommunityWorkspace(nextCommunityWorkspace);
-      setCampaignIntakes(nextWorkspace.campaignIntakes);
-      setOrganizedUpdates(nextWorkspace.organizedUpdates);
-      setLinkWidgets(nextWorkspace.linkWidgets);
-      setShiftHandovers(nextWorkspace.shiftHandovers);
-      setCoverageRecords(nextWorkspace.coverageRecords);
-      if (nextWorkspace.standaloneTasks.length > 0) {
-        setStandaloneTasksState(nextWorkspace.standaloneTasks);
-      }
+      applyWorkspaceSnapshot(nextWorkspace);
       setHasLoadedWorkspace(true);
       setFetchError(false);
       setLastSyncError(null);
@@ -656,17 +704,24 @@ export function Root() {
       const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.coverageRecords));
       const storedCommunityWorkspace = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
 
-      if (storedTasks.length > 0) setTasks(storedTasks);
-      if (storedTaskNotifications.length > 0) setTaskNotifications(storedTaskNotifications);
-      if (storedOpsCampaigns.length > 0) setOpsCampaigns(storedOpsCampaigns);
-      if (storedSuccessLogs.length > 0) setSuccessLogs(storedSuccessLogs);
-      if (storedMistakes.length > 0) setMistakes(storedMistakes);
-      if (storedCampaignIntakes.length > 0) setCampaignIntakes(storedCampaignIntakes);
-      if (storedOrganizedUpdates.length > 0) setOrganizedUpdates(storedOrganizedUpdates);
-      if (storedLinkWidgets.length > 0) setLinkWidgets(storedLinkWidgets);
-      if (storedShiftHandovers.length > 0) setShiftHandovers(storedShiftHandovers);
-      if (storedCoverageRecords.length > 0) setCoverageRecords(storedCoverageRecords);
-      if (storedCommunityWorkspace) setCommunityWorkspace(normalizeCommunityWorkspace(storedCommunityWorkspace));
+      const storedStandaloneTasks = readStoredWorkspaceRecords<StandaloneTaskRecord>(getStandaloneTasksStorageKey(userEmail));
+      const storedTasksPerTeam = readStoredWorkspaceObject<Record<string, WorkspaceRecord>>(WORKSPACE_STORAGE_KEYS.tasksPerTeam, {});
+
+      applyWorkspaceSnapshot({
+        tasks: storedTasks,
+        successLogs: storedSuccessLogs,
+        taskNotifications: storedTaskNotifications,
+        mistakes: storedMistakes,
+        tasksPerTeam: storedTasksPerTeam,
+        opsCampaigns: storedOpsCampaigns,
+        communityWorkspace: storedCommunityWorkspace ? normalizeCommunityWorkspace(storedCommunityWorkspace) : createEmptyCommunityWorkspace(),
+        campaignIntakes: storedCampaignIntakes,
+        organizedUpdates: storedOrganizedUpdates,
+        linkWidgets: storedLinkWidgets,
+        shiftHandovers: storedShiftHandovers,
+        coverageRecords: storedCoverageRecords,
+        standaloneTasks: storedStandaloneTasks,
+      });
 
       // Mark workspace as loaded so content shows instead of a blank loading screen
       setHasLoadedWorkspace(true);
@@ -678,7 +733,7 @@ export function Root() {
         setIsLoading(false);
       }
     }
-  }, [isAuthenticated, userEmail]);
+  }, [applyWorkspaceSnapshot, isAuthenticated, userEmail]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -808,6 +863,7 @@ export function Root() {
     persistWorkspaceSnapshot({
       tasks,
       taskNotifications,
+      tasksPerTeam,
       opsCampaigns,
       campaignIntakes,
       organizedUpdates,
@@ -835,8 +891,49 @@ export function Root() {
     successLogs,
     taskNotifications,
     tasks,
+    tasksPerTeam,
     userEmail,
   ]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !hasLoadedWorkspace) {
+      return;
+    }
+
+    const flushWorkspaceSnapshot = () => {
+      const payload = workspaceSyncPayloadRef.current;
+      persistWorkspaceSnapshot({
+        tasks: payload.tasks,
+        taskNotifications: payload.taskNotifications,
+        tasksPerTeam: payload.tasksPerTeam,
+        opsCampaigns: payload.opsCampaigns,
+        campaignIntakes: payload.campaignIntakes,
+        organizedUpdates: payload.organizedUpdates,
+        linkWidgets: payload.linkWidgets,
+        shiftHandovers: payload.shiftHandovers,
+        coverageRecords: payload.coverageRecords,
+        successLogs: payload.successLogs,
+        mistakes: payload.mistakes,
+        communityWorkspace: communityWorkspaceRef.current,
+        standaloneTasks: payload.standaloneTasks,
+        userEmail,
+      });
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        flushWorkspaceSnapshot();
+      }
+    };
+
+    window.addEventListener('pagehide', flushWorkspaceSnapshot);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('pagehide', flushWorkspaceSnapshot);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [hasLoadedWorkspace, isAuthenticated, userEmail]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
