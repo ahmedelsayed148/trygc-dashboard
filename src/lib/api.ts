@@ -7,33 +7,67 @@ interface ApiRequestOptions {
   headers?: HeadersInit;
   method?: "GET" | "POST" | "PUT" | "DELETE";
   signal?: AbortSignal;
+  timeoutMs?: number;
 }
 
 export async function apiRequest<T>(
   path: string,
-  { body, headers, method = "GET", signal }: ApiRequestOptions = {},
+  { body, headers, method = "GET", signal, timeoutMs = 15000 }: ApiRequestOptions = {},
 ): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}/${path}`, {
-    method,
-    signal,
-    headers: {
-      Authorization: `Bearer ${publicAnonKey}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-      ...headers,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
+  const controller = new AbortController();
+  const abortExternalSignal = () => controller.abort();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  const contentType = response.headers.get("content-type") || "";
-  const payload = contentType.includes("application/json")
-    ? await response.json()
-    : null;
-
-  if (!response.ok) {
-    throw new Error(payload?.error || `Request failed with status ${response.status}`);
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", abortExternalSignal, { once: true });
+    }
   }
 
-  return payload as T;
+  try {
+    const response = await fetch(`${API_BASE_URL}/${path}`, {
+      method,
+      signal: controller.signal,
+      headers: {
+        Authorization: `Bearer ${publicAnonKey}`,
+        ...(body ? { "Content-Type": "application/json" } : {}),
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const payload = contentType.includes("application/json")
+      ? await response.json()
+      : null;
+
+    if (!response.ok) {
+      throw new Error(payload?.error || `Request failed with status ${response.status}`);
+    }
+
+    return payload as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      if (signal?.aborted) {
+        throw error;
+      }
+
+      throw new Error("Request timed out. Please try again.");
+    }
+
+    if (error instanceof TypeError) {
+      throw new Error("Network request failed. Check your connection and try again.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    if (signal) {
+      signal.removeEventListener("abort", abortExternalSignal);
+    }
+  }
 }
 
 export type WorkspaceDataResponse = {

@@ -280,11 +280,14 @@ export function Root() {
   const [successData, setSuccessData] = useState({ title: '', detail: '', campaign: '' });
   const [workspaceRevision, setWorkspaceRevision] = useState(0);
   const [lastPersistedRevision, setLastPersistedRevision] = useState(0);
+  const [communityRevision, setCommunityRevision] = useState(0);
+  const [lastPersistedCommunityRevision, setLastPersistedCommunityRevision] = useState(0);
 
   const hasInitialNavigated = useRef(false);
   const refreshRequestIdRef = useRef(0);
   const saveRequestIdRef = useRef(0);
   const workspaceRevisionRef = useRef(0);
+  const communityRevisionRef = useRef(0);
   const communityWorkspaceRef = useRef<CommunityWorkspace>(createEmptyCommunityWorkspace());
   const workspaceSyncPayloadRef = useRef({
     tasks: [] as TaskRecord[],
@@ -310,11 +313,19 @@ export function Root() {
   }, [workspaceRevision]);
 
   useEffect(() => {
+    communityRevisionRef.current = communityRevision;
+  }, [communityRevision]);
+
+  useEffect(() => {
     communityWorkspaceRef.current = communityWorkspace;
   }, [communityWorkspace]);
 
   const markWorkspaceDirty = useCallback(() => {
     setWorkspaceRevision((current) => current + 1);
+  }, []);
+
+  const markCommunityDirty = useCallback(() => {
+    setCommunityRevision((current) => current + 1);
   }, []);
 
   const updateTasks = useCallback((value: React.SetStateAction<TaskRecord[]>) => {
@@ -349,8 +360,8 @@ export function Root() {
 
   const updateCommunityWorkspace = useCallback((value: React.SetStateAction<CommunityWorkspace>) => {
     setCommunityWorkspace((current) => resolveStateUpdate(value, current));
-    markWorkspaceDirty();
-  }, [markWorkspaceDirty]);
+    markCommunityDirty();
+  }, [markCommunityDirty]);
 
   const updateCampaignIntakes = useCallback((value: React.SetStateAction<CampaignIntakeRecord[]>) => {
     setCampaignIntakes((current) => resolveStateUpdate(value, current));
@@ -483,6 +494,8 @@ export function Root() {
     setLastSyncError(null);
     setWorkspaceRevision(0);
     setLastPersistedRevision(0);
+    setCommunityRevision(0);
+    setLastPersistedCommunityRevision(0);
     refreshRequestIdRef.current += 1;
     saveRequestIdRef.current += 1;
   }, []);
@@ -684,6 +697,7 @@ export function Root() {
       setLastSyncError(null);
       setConnectionState('online');
       setLastPersistedRevision(workspaceRevisionRef.current);
+      setLastPersistedCommunityRevision(communityRevisionRef.current);
     } catch (error) {
       console.error('Error fetching workspace data:', error);
 
@@ -784,28 +798,44 @@ export function Root() {
       return;
     }
 
-    if (workspaceRevision === lastPersistedRevision) {
+    const hasWorkspaceChanges = workspaceRevision !== lastPersistedRevision;
+    const hasCommunityChanges = communityRevision !== lastPersistedCommunityRevision;
+
+    if (!hasWorkspaceChanges && !hasCommunityChanges) {
       return;
     }
 
     setSaveState('saving');
     setConnectionState('syncing');
-    const revisionAtSave = workspaceRevision;
+    const revisionAtSave = {
+      community: communityRevision,
+      workspace: workspaceRevision,
+    };
 
     const timer = window.setTimeout(async () => {
       const saveRequestId = saveRequestIdRef.current + 1;
       saveRequestIdRef.current = saveRequestId;
+      let workspaceSaved = false;
+      let communitySaved = false;
 
       try {
-        await apiRequest('workspace', {
-          method: 'POST',
-          body: workspaceSyncPayloadRef.current,
-        });
+        if (hasWorkspaceChanges) {
+          await apiRequest('workspace', {
+            method: 'POST',
+            body: workspaceSyncPayloadRef.current,
+            timeoutMs: 20000,
+          });
+          workspaceSaved = true;
+        }
 
-        await apiRequest('community-team-data', {
-          method: 'POST',
-          body: { data: communityWorkspaceRef.current },
-        });
+        if (hasCommunityChanges) {
+          await apiRequest('community-team-data', {
+            method: 'POST',
+            body: { data: communityWorkspaceRef.current },
+            timeoutMs: 20000,
+          });
+          communitySaved = true;
+        }
 
         if (saveRequestId !== saveRequestIdRef.current) {
           return;
@@ -815,11 +845,22 @@ export function Root() {
         setSaveState('saved');
         setConnectionState('online');
         setLastSyncError(null);
-        setLastPersistedRevision(revisionAtSave);
+        if (workspaceSaved) {
+          setLastPersistedRevision(revisionAtSave.workspace);
+        }
+        if (communitySaved) {
+          setLastPersistedCommunityRevision(revisionAtSave.community);
+        }
       } catch (error) {
         console.error('Error saving workspace:', error);
         if (saveRequestId !== saveRequestIdRef.current) {
           return;
+        }
+        if (workspaceSaved) {
+          setLastPersistedRevision(revisionAtSave.workspace);
+        }
+        if (communitySaved) {
+          setLastPersistedCommunityRevision(revisionAtSave.community);
         }
         setSaveState('error');
         setConnectionState('error');
@@ -835,6 +876,8 @@ export function Root() {
     isLoading,
     workspaceRevision,
     lastPersistedRevision,
+    communityRevision,
+    lastPersistedCommunityRevision,
   ]);
 
   useEffect(() => {

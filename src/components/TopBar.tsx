@@ -86,6 +86,7 @@ export function TopBar({
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSOPOpen, setIsSOPOpen] = useState(false);
   const notifButtonRef = useRef<HTMLButtonElement | null>(null);
+  const isBusy = saveState === 'saving' || connectionState === 'loading' || connectionState === 'syncing';
 
   const connectionLabel = useMemo(() => {
     if (saveState === 'saving') return 'Saving…';
@@ -143,6 +144,17 @@ export function TopBar({
           </div>
         </div>
 
+        <span
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[11px] font-semibold lg:hidden',
+            statusTone,
+          )}
+          title={connectionTooltip}
+        >
+          <SaveIcon className={cn('h-3 w-3', saveState === 'saving' && 'animate-spin')} />
+          {saveState === 'error' ? 'Sync failed' : connectionState === 'error' ? 'Offline' : isBusy ? 'Syncing' : 'Ready'}
+        </span>
+
         <button
           onClick={onOpenCommandPalette}
           className="hidden w-64 items-center gap-2 rounded-xl border border-transparent bg-[hsl(var(--muted)/0.72)] px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:border-[rgba(var(--app-primary-rgb),0.14)] hover:bg-[hsl(var(--muted)/0.96)] dark:text-zinc-400 md:flex"
@@ -156,6 +168,15 @@ export function TopBar({
 
         <div className="flex-1" />
 
+        <button
+          onClick={onOpenCommandPalette}
+          className="rounded-xl p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted)/0.9)] md:hidden"
+          aria-label="Open search"
+          title="Search or jump"
+        >
+          <Search className="h-4 w-4" />
+        </button>
+
         <div className="hidden lg:flex items-center gap-2">
           <span
             className={cn('inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors', statusTone)}
@@ -167,10 +188,11 @@ export function TopBar({
 
           <button
             onClick={onRefreshWorkspace}
+            disabled={isBusy}
             className="rounded-xl p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted)/0.9)]"
             title="Refresh workspace"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className={cn('w-4 h-4', isBusy && 'animate-spin')} />
           </button>
 
           <button
@@ -277,6 +299,7 @@ export function TopBar({
                   label="Refresh workspace"
                   onClick={() => { onRefreshWorkspace(); setIsUserMenuOpen(false); }}
                   className="lg:hidden"
+                  disabled={isBusy}
                 />
                 <div className="my-1 h-px bg-zinc-100 dark:bg-zinc-800" />
                 <MenuButton
@@ -306,18 +329,21 @@ function MenuButton({
   onClick,
   danger,
   className,
+  disabled,
 }: {
   icon?: React.ElementType;
   label: string;
   onClick: () => void;
   danger?: boolean;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       className={cn(
-        'w-full text-left px-3 py-1.5 text-sm transition-colors flex items-center gap-2',
+        'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
         danger
           ? 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10'
           : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800',
