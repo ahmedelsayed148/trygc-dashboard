@@ -3,7 +3,7 @@ import { Campaign, Task, CommunityWorkspace, CampaignIntake, OrganizedUpdate, Sh
 export const seedTeamMembers: User[] = [
   { id: '1', email: 'sara@trygc.com', name: 'Sara Al-Rashid', role: 'owner', features: ['all'], demoCompleted: true, createdAt: '2024-01-01' },
   { id: '2', email: 'ahmed@trygc.com', name: 'Ahmed Hassan', role: 'admin', features: ['campaigns', 'tasks', 'community', 'coverage', 'reports', 'analytics'], demoCompleted: true, createdAt: '2024-02-01' },
-  { id: '3', email: 'fatima@trygc.com', name: 'Fatima Noor', role: 'member', features: ['tasks', 'community', 'coverage', 'handover'], demoCompleted: true, createdAt: '2024-03-01' },
+  { id: '3', email: 'fatima@trygc.com', name: 'Fatima Noor', role: 'member', features: ['tasks', 'community', 'coverage', 'update-organizer'], demoCompleted: true, createdAt: '2024-03-01' },
   { id: '4', email: 'omar@trygc.com', name: 'Omar Khalil', role: 'member', features: ['tasks', 'community', 'coverage'], demoCompleted: false, createdAt: '2024-04-01' },
   { id: '5', email: 'layla@trygc.com', name: 'Layla Mansour', role: 'admin', features: ['campaigns', 'tasks', 'analytics', 'reports'], demoCompleted: true, createdAt: '2024-03-15' },
 ];

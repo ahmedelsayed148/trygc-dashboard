@@ -48,23 +48,23 @@ export function Login({ onLogin }: { onLogin: (session: any) => void }) {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="app-shell-background min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background blobs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-zinc-800/30 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full bg-zinc-700/20 blur-3xl" />
+        <div className="absolute -top-32 -right-32 w-[500px] h-[500px] rounded-full bg-[rgba(var(--app-primary-rgb),0.12)] blur-3xl" />
+        <div className="absolute -bottom-32 -left-32 w-[500px] h-[500px] rounded-full bg-[rgba(var(--app-primary-rgb),0.08)] blur-3xl" />
         {/* Subtle grid */}
         <div className="absolute inset-0 opacity-[0.03]"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
+          style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
       </div>
 
       <div className="relative z-10 w-full max-w-sm">
         {/* Brand mark */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-white rounded-2xl shadow-2xl mb-5 -rotate-3">
-            <ShieldCheck className="w-7 h-7 text-zinc-900" />
+          <div className="inline-flex items-center justify-center w-14 h-14 app-accent-button rounded-2xl shadow-2xl mb-5 -rotate-3">
+            <ShieldCheck className="w-7 h-7" />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight">
+          <h1 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 tracking-tight">
             {isLogin ? 'Welcome back' : 'Join the team'}
           </h1>
           <p className="mt-1.5 text-sm text-zinc-400 font-medium">

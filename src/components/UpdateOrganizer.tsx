@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useContext, useMemo, useState } from "react";
+import React, { useContext, useDeferredValue, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
   CheckCircle2,
   ClipboardList,
   Copy,
+  Download,
   History,
   Languages,
   LineChart,
@@ -538,6 +539,30 @@ async function copyToClipboard(value: string) {
   document.body.removeChild(textArea);
 }
 
+function downloadTextFile(filename: string, content: string) {
+  if (!content.trim()) {
+    return;
+  }
+
+  const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+function sanitizeFileName(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 48) || "output";
+}
+
 // MAIN_COMPONENT
 export function UpdateOrganizer() {
   return (
@@ -585,6 +610,9 @@ function UpdateOrganizerContent() {
   const [outputStyle, setOutputStyle] = useState<'plain' | 'rich'>(organizerConfig.defaultOutputStyle as 'plain' | 'rich');
   const [historySearch, setHistorySearch] = useState("");
   const [dateRange, setDateRange] = useState(emptyDateRange);
+  const deferredWorkingInput = useDeferredValue(translatedInput || rawInput);
+  const deferredHistorySearch = useDeferredValue(historySearch);
+  const deferredHandoverHistorySearch = useDeferredValue(handoverHistorySearch);
 
   const workingInput = translatedInput || rawInput;
 
@@ -639,18 +667,18 @@ function UpdateOrganizerContent() {
     setHandoverStatus(`${label} copied.`);
   };
   const filteredHandovers = useMemo(() => {
-    if (!handoverHistorySearch.trim()) return savedHandovers;
-    const q = handoverHistorySearch.toLowerCase();
+    if (!deferredHandoverHistorySearch.trim()) return savedHandovers;
+    const q = deferredHandoverHistorySearch.toLowerCase();
     return savedHandovers.filter(h =>
       [h.title, h.summary, h.preparedBy, h.team, h.shiftWindow, h.blockers].join(' ').toLowerCase().includes(q),
     );
-  }, [savedHandovers, handoverHistorySearch]);
+  }, [savedHandovers, deferredHandoverHistorySearch]);
 
-  const parsedPreview = useMemo(() => parseStructuredUpdate(workingInput), [workingInput]);
+  const parsedPreview = useMemo(() => parseStructuredUpdate(deferredWorkingInput), [deferredWorkingInput]);
 
   const filteredHistory = useMemo(() => {
     const ranged = filterByDateRange(organizedUpdates, dateRange, (item) => item.createdAt);
-    const searchValue = historySearch.trim().toLowerCase();
+    const searchValue = deferredHistorySearch.trim().toLowerCase();
 
     if (!searchValue) {
       return ranged;
@@ -662,7 +690,7 @@ function UpdateOrganizerContent() {
         .toLowerCase()
         .includes(searchValue),
     );
-  }, [dateRange, historySearch, organizedUpdates]);
+  }, [dateRange, deferredHistorySearch, organizedUpdates]);
 
   const stats = useMemo(() => {
     const translated = filteredHistory.filter((item) => item.translatedInput).length;
@@ -690,6 +718,83 @@ function UpdateOrganizerContent() {
   const autoTitle = useMemo(
     () => reportTitle.trim() || buildUpdateTitle(workingInput || "Structured Update"),
     [reportTitle, workingInput],
+  );
+
+  const quickActions = useMemo(() => {
+    const actions: Array<{ id: string; label: string; apply: () => void }> = [];
+
+    if (!reportTitle.trim() && autoTitle) {
+      actions.push({
+        id: "title",
+        label: `Use title: ${autoTitle}`,
+        apply: () => setReportTitle(autoTitle),
+      });
+    }
+
+    if (parsedPreview.metrics.length >= 2 && !options.includeMetrics) {
+      actions.push({
+        id: "metrics",
+        label: "Turn metrics back on",
+        apply: () => setOptions((current) => ({ ...current, includeMetrics: true })),
+      });
+    }
+
+    if (parsedPreview.blockers.length > 0 && template === "client") {
+      actions.push({
+        id: "leadership",
+        label: "Switch to leadership brief",
+        apply: () => setTemplate("leadership"),
+      });
+    }
+
+    if (parsedPreview.summary.length === 0 && parsedPreview.notes.length >= 2) {
+      actions.push({
+        id: "daily",
+        label: "Use daily ops template",
+        apply: () => setTemplate("daily"),
+      });
+    }
+
+    return actions.slice(0, 3);
+  }, [autoTitle, options.includeMetrics, parsedPreview.blockers.length, parsedPreview.metrics.length, parsedPreview.notes.length, parsedPreview.summary.length, reportTitle, template]);
+
+  const handoverQuickFill = useMemo(
+    () => [
+      {
+        id: "stable",
+        label: "Stable shift",
+        apply: () =>
+          setHandoverForm((current) => ({
+            ...current,
+            health: "Stable",
+            summary: current.summary || "Shift remained stable with core operations cleared and no major escalations.",
+            nextShiftFocus: current.nextShiftFocus || "Continue current priorities, monitor pending items, and close remaining follow-ups.",
+          })),
+      },
+      {
+        id: "risk",
+        label: "Risk handover",
+        apply: () =>
+          setHandoverForm((current) => ({
+            ...current,
+            health: "Watch",
+            blockers: current.blockers || "Pending approvals, delayed responses, or dependencies may affect the next shift.",
+            escalations: current.escalations || "Leadership visibility may be required if delays continue into the next shift.",
+          })),
+      },
+      {
+        id: "critical",
+        label: "Critical escalation",
+        apply: () =>
+          setHandoverForm((current) => ({
+            ...current,
+            health: "Critical",
+            summary: current.summary || "Critical operational issues require immediate attention at the start of the next shift.",
+            escalations: current.escalations || "Immediate decision or owner intervention is needed.",
+          })),
+      },
+    ],
+    [],
   );
 
   const handleFormat = async () => {
@@ -829,51 +934,93 @@ function UpdateOrganizerContent() {
     setStatusMessage("Composer cleared.");
   };
 
+  const activeModeMeta = activeTab === "update"
+    ? {
+        eyebrow: "Structured Messaging",
+        title: "Turn rough notes into leadership-ready outputs",
+        description: "Parse noisy updates, shape the story, and export polished outputs with faster review and better consistency.",
+        plans: [
+          { label: "Current mode", value: "Update composer" },
+          { label: "Best for", value: "Leadership, daily ops, client briefs" },
+          { label: "Output flow", value: "Raw input -> parsed sections -> final message" },
+        ],
+      }
+    : {
+        eyebrow: "Shift Briefing",
+        title: "Build cleaner handovers for the next shift",
+        description: "Capture status, risks, and next actions in one briefing surface so the next team starts with context instead of guesswork.",
+        plans: [
+          { label: "Current mode", value: "Handover briefing" },
+          { label: "Best for", value: "Shift changes and cross-team continuity" },
+          { label: "Output flow", value: "Form input -> broadcast preview -> saved history" },
+        ],
+      };
+
   return (
-    <div className="min-h-full bg-zinc-50 px-3 py-4 sm:px-4 lg:px-6 lg:py-6 dark:bg-black">
-      <div className="mx-auto max-w-screen-2xl space-y-5">
-        {/* ── Page Header with Mode Tabs ── */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
-              Update &amp; Handover Organizer
+    <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-5 md:px-6">
+      <section className="app-hero-panel rounded-[var(--app-card-radius)] border p-6 md:p-7">
+        <div className="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
+          <div className="max-w-3xl">
+            <div className="app-hero-chip inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.2em]">
+              {activeTab === "update" ? <WandSparkles className="h-3.5 w-3.5" /> : <MessageCircle className="h-3.5 w-3.5" />}
+              {activeModeMeta.eyebrow}
+            </div>
+            <h1 className="app-hero-title mt-4 text-3xl font-black tracking-tight md:text-4xl">
+              {activeModeMeta.title}
             </h1>
-            <p className="mt-0.5 text-sm text-zinc-500">
-              Structure updates for leadership or compose detailed shift handovers
+            <p className="app-hero-copy mt-2 text-sm leading-6 md:text-base">
+              {activeModeMeta.description}
             </p>
           </div>
-          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('update')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'update' ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
-            >
-              <WandSparkles className="w-3.5 h-3.5 inline mr-1.5" />
-              Updates
-            </button>
-            <button
-              onClick={() => setActiveTab('handover')}
-              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'handover' ? 'bg-white dark:bg-zinc-800 shadow-sm text-zinc-900 dark:text-white' : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
-            >
-              <MessageCircle className="w-3.5 h-3.5 inline mr-1.5" />
-              Handover
-            </button>
+
+          <div className="w-full max-w-[520px] space-y-3">
+            <div className="app-control-surface flex items-center gap-1 rounded-2xl border p-1.5">
+              <button
+                onClick={() => setActiveTab('update')}
+                className={`flex-1 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'update' ? 'app-accent-button' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+              >
+                <WandSparkles className="mr-1.5 inline h-3.5 w-3.5" />
+                Updates
+              </button>
+              <button
+                onClick={() => setActiveTab('handover')}
+                className={`flex-1 rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.18em] transition-all ${activeTab === 'handover' ? 'app-accent-button' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+              >
+                <MessageCircle className="mr-1.5 inline h-3.5 w-3.5" />
+                Handover
+              </button>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              {activeModeMeta.plans.map((item) => (
+                <MiniPlan key={item.label} label={item.label} value={item.value} />
+              ))}
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* ── Stats Bar ── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <HeroStat label="Saved Updates" value={stats.total} />
-          <HeroStat label="Translated" value={stats.translated} />
-          <HeroStat label="Handovers" value={handoverStats.total} />
-          <HeroStat label="Today" value={stats.savedToday + handoverStats.today} />
-        </div>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <HeroStat label="Saved Updates" value={stats.total} />
+        <HeroStat label="Translated" value={stats.translated} />
+        <HeroStat label="Handovers" value={handoverStats.total} />
+        <HeroStat label="Today" value={stats.savedToday + handoverStats.today} />
+      </section>
 
         {activeTab === 'update' ? (
         <>
         {/* COMPOSER + PREVIEW */}
         <section className="grid gap-6 xl:grid-cols-[1.02fr,0.98fr]">
-          <div className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-            <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
+          <div className="app-panel overflow-hidden rounded-[var(--app-card-radius)] border">
+            <div className="app-shell-divider border-b px-5 py-5 sm:px-6">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="app-hero-chip rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
+                  Composer
+                </span>
+                <span className="rounded-full border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.72)] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                  Ctrl/Cmd + Enter to build
+                </span>
+              </div>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
                 <Field label="Report Title" className="flex-1">
                   <input value={reportTitle} onChange={(event) => setReportTitle(event.target.value)} placeholder="Night shift campaign delivery update" className={inputClassName} />
@@ -887,7 +1034,7 @@ function UpdateOrganizerContent() {
               </div>
             </div>
 
-            <div className="border-b border-zinc-200 bg-zinc-50/80 px-5 py-5 dark:border-zinc-800 dark:bg-zinc-900/70 sm:px-6">
+            <div className="app-shell-divider border-b bg-[hsl(var(--muted)/0.52)] px-5 py-5 sm:px-6">
               <div className="grid gap-3 lg:grid-cols-3">
                 {(Object.keys(TEMPLATE_PRESETS) as OutputTemplate[]).map((presetKey) => {
                   const preset = TEMPLATE_PRESETS[presetKey];
@@ -900,12 +1047,12 @@ function UpdateOrganizerContent() {
                       onClick={() => setTemplate(presetKey)}
                       className={`rounded-[1.5rem] border p-4 text-left transition-all ${
                         isActive
-                          ? "border-zinc-900 bg-zinc-900 text-white shadow-lg dark:border-zinc-100 dark:bg-zinc-100 dark:text-black"
-                          : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900"
+                          ? "app-accent-button border-[rgba(var(--app-primary-rgb),0.4)] shadow-lg"
+                          : "app-control-surface text-zinc-700 hover:border-[rgba(var(--app-primary-rgb),0.18)] hover:bg-[hsl(var(--muted)/0.7)] dark:text-zinc-200"
                       }`}
                     >
                       <div className="text-sm font-black">{preset.title}</div>
-                      <div className={`mt-2 text-xs ${isActive ? "text-white/70 dark:text-black/70" : "text-zinc-500 dark:text-zinc-400"}`}>{preset.subtitle}</div>
+                      <div className={`mt-2 text-xs ${isActive ? "text-[rgba(var(--app-primary-contrast-rgb),0.76)]" : "text-zinc-500 dark:text-zinc-400"}`}>{preset.subtitle}</div>
                     </button>
                   );
                 })}
@@ -919,8 +1066,8 @@ function UpdateOrganizerContent() {
                     onClick={() => setDetailLevel(level)}
                     className={`rounded-full px-4 py-2 text-xs font-black uppercase tracking-[0.18em] transition-all ${
                       detailLevel === level
-                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black"
-                        : "bg-white text-zinc-500 hover:bg-zinc-100 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        ? "app-accent-button"
+                        : "app-control-surface text-zinc-500 hover:text-zinc-800 dark:text-zinc-300 dark:hover:text-zinc-100"
                     }`}
                   >
                     {level}
@@ -929,7 +1076,7 @@ function UpdateOrganizerContent() {
               </div>
             </div>
 
-            <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
+            <div className="app-shell-divider border-b px-5 py-5 sm:px-6">
               <label className="mb-3 flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-400">
                 <Languages className="h-4 w-4" />
                 Composer Options
@@ -943,12 +1090,12 @@ function UpdateOrganizerContent() {
               </div>
               <div className="mt-3 flex items-center gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-zinc-400">Output Style</span>
-                <div className="flex items-center gap-1 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-0.5 rounded-lg">
+                <div className="app-control-surface flex items-center gap-1 rounded-lg border p-0.5">
                   {(['plain', 'rich'] as const).map(style => (
                     <button key={style} type="button" onClick={() => setOutputStyle(style)}
                       className={`px-3 py-1 rounded-md text-xs font-bold capitalize transition-all ${
                         outputStyle === style
-                          ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black'
+                          ? 'app-accent-button'
                           : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
                       }`}>
                       {style === 'rich' ? '✨ Rich (Emoji)' : '📄 Plain Text'}
@@ -959,6 +1106,20 @@ function UpdateOrganizerContent() {
                   <span className="text-[10px] text-zinc-400">Formatted for Slack, Teams, WhatsApp</span>
                 )}
               </div>
+              {quickActions.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {quickActions.map((action) => (
+                    <button
+                      key={action.id}
+                      type="button"
+                      onClick={action.apply}
+                      className="app-control-surface rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600 transition-colors hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-300"
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="px-5 py-5 sm:px-6">
@@ -978,7 +1139,7 @@ function UpdateOrganizerContent() {
                     void handleFormat();
                   }
                 }}
-                className="min-h-[340px] w-full resize-y rounded-[1.5rem] border border-zinc-200 bg-zinc-50 px-4 py-4 text-sm font-medium text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+                className={`${inputClassName} min-h-[340px] resize-y px-4 py-4`}
                 placeholder="Paste the rough update here. Example:
 
 Done:
@@ -996,21 +1157,21 @@ Next steps:
               />
 
               <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button onClick={() => void handleFormat()} disabled={isFormatting} className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] bg-zinc-900 px-5 py-4 text-sm font-black text-white transition-all hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+                <button onClick={() => void handleFormat()} disabled={isFormatting} className="app-accent-button inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] px-5 py-4 text-sm font-black transition-all hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70">
                   {isFormatting ? <Loader2 className="h-5 w-5 animate-spin" /> : <Sparkles className="h-5 w-5" />}
                   Build Professional Output
                 </button>
-                <button onClick={handleSave} disabled={isFormatting} className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border border-zinc-200 bg-zinc-100 px-5 py-4 text-sm font-black text-zinc-700 transition-all hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                <button onClick={handleSave} disabled={isFormatting} className="app-control-surface inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border px-5 py-4 text-sm font-black text-zinc-700 transition-all hover:bg-[hsl(var(--muted)/0.72)] disabled:cursor-not-allowed disabled:opacity-70 sm:w-auto dark:text-zinc-200">
                   <Save className="h-5 w-5" />
                   Save
                 </button>
-                <button onClick={resetComposer} className="inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border border-zinc-200 bg-white px-5 py-4 text-sm font-black text-zinc-600 transition-all hover:bg-zinc-100 sm:w-auto dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900">
+                <button onClick={resetComposer} className="app-control-surface inline-flex w-full items-center justify-center gap-3 rounded-[1.5rem] border px-5 py-4 text-sm font-black text-zinc-600 transition-all hover:bg-[hsl(var(--muted)/0.72)] sm:w-auto dark:text-zinc-300">
                   Clear
                 </button>
               </div>
 
               {statusMessage && (
-                <div className="mt-4 rounded-[1.25rem] border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-bold text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
+                <div className="app-control-surface mt-4 rounded-[1.25rem] border px-4 py-3 text-sm font-bold text-zinc-700 dark:text-zinc-200">
                   {statusMessage}
                 </div>
               )}
@@ -1018,14 +1179,14 @@ Next steps:
           </div>
 
           <div className="space-y-6">
-            <section className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
+            <section className="app-panel overflow-hidden rounded-[var(--app-card-radius)] border">
+              <div className="app-shell-divider border-b px-5 py-5 sm:px-6">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="text-xs font-black uppercase tracking-[0.22em] text-zinc-400">Structured Preview</div>
                     <div className="mt-2 text-2xl font-black text-zinc-950 dark:text-zinc-100">Parsed sections before export</div>
                   </div>
-                  <div className="rounded-full bg-zinc-100 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300">
+                  <div className="app-control-surface rounded-full border px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-zinc-600 dark:text-zinc-300">
                     {sectionCounts.reduce((sum, section) => sum + section.count, 0)} items detected
                   </div>
                 </div>
@@ -1038,22 +1199,29 @@ Next steps:
               </div>
             </section>
 
-            <section className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-              <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
+            <section className="app-panel overflow-hidden rounded-[var(--app-card-radius)] border">
+              <div className="app-shell-divider border-b px-5 py-5 sm:px-6">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <div className="text-xs font-black uppercase tracking-[0.22em] text-zinc-400">Final Output</div>
                     <div className="mt-2 text-2xl font-black text-zinc-950 dark:text-zinc-100">{TEMPLATE_PRESETS[template].title}</div>
                   </div>
-                  <button onClick={() => void handleCopy(formattedOutput, "Formatted output")} className="inline-flex items-center gap-2 rounded-xl bg-zinc-900 px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-black dark:hover:bg-zinc-200">
+                  <button onClick={() => void handleCopy(formattedOutput, "Formatted output")} className="app-accent-button inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition-colors hover:opacity-95">
                     <Copy className="h-4 w-4" />
                     Copy Output
+                  </button>
+                  <button
+                    onClick={() => downloadTextFile(`${sanitizeFileName(autoTitle)}-${template}.txt`, formattedOutput)}
+                    className="app-control-surface inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold text-zinc-700 transition-colors hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-200"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export TXT
                   </button>
                 </div>
               </div>
 
               <div className="px-5 py-5 sm:px-6">
-                <div className="min-h-[340px] whitespace-pre-wrap rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4 text-sm font-medium text-zinc-900 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
+                <div className="app-control-surface min-h-[340px] whitespace-pre-wrap rounded-[1.5rem] border p-4 text-sm font-medium text-zinc-900 dark:text-zinc-100">
                   {formattedOutput || <span className="text-zinc-400">Generate the update to preview the professional output here.</span>}
                 </div>
 
@@ -1064,7 +1232,7 @@ Next steps:
                 )}
 
                 {translatedInput && (
-                  <div className="mt-4 rounded-[1.5rem] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+                  <div className="app-control-surface mt-4 rounded-[1.5rem] border p-4">
                     <div className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400">Translated Draft</div>
                     <div className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300">{translatedInput}</div>
                     <div className="mt-3 text-[11px] font-bold uppercase tracking-[0.18em] text-zinc-400">Source language: {sourceLanguage}</div>
@@ -1075,8 +1243,8 @@ Next steps:
           </div>
         </section>
 
-        <section className="overflow-hidden rounded-[2rem] border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-          <div className="border-b border-zinc-200 px-5 py-5 dark:border-zinc-800 sm:px-6">
+        <section className="app-panel overflow-hidden rounded-[var(--app-card-radius)] border">
+          <div className="app-shell-divider border-b px-5 py-5 sm:px-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-zinc-400">
@@ -1086,7 +1254,7 @@ Next steps:
                 <div className="mt-2 text-2xl font-black text-zinc-950 dark:text-zinc-100">Searchable structured update history</div>
               </div>
 
-              <div className="w-full max-w-md rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-900">
+              <div className="app-control-surface w-full max-w-md rounded-2xl border px-4 py-3">
                 <div className="flex items-center gap-3">
                   <Search className="h-4 w-4 text-zinc-400" />
                   <input
@@ -1106,7 +1274,7 @@ Next steps:
             <div className="mt-5 grid gap-4 xl:grid-cols-2">
               {filteredHistory.length > 0 ? (
                 filteredHistory.slice(0, organizerConfig.maxHistoryItems).map((item) => (
-                  <article key={item.id} className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900">
+                  <article key={item.id} className="app-control-surface rounded-[1.5rem] border p-5">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                       <div className="min-w-0">
                         <div className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400">
@@ -1132,7 +1300,7 @@ Next steps:
                     </div>
 
                     {item.translatedInput && (
-                      <div className="mt-4 rounded-[1.25rem] border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+                      <div className="app-panel mt-4 rounded-[1.25rem] border p-4">
                         <div className="mb-2 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400">Translated Draft</div>
                         <div className="line-clamp-4 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300">
                           {item.translatedInput}
@@ -1142,7 +1310,7 @@ Next steps:
                   </article>
                 ))
               ) : (
-                <div className="rounded-[1.75rem] border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center dark:border-zinc-700 dark:bg-zinc-900 xl:col-span-2">
+                <div className="rounded-[1.75rem] border border-dashed border-[rgba(var(--app-primary-rgb),0.16)] bg-[hsl(var(--muted)/0.52)] p-10 text-center xl:col-span-2">
                   <h3 className="text-lg font-black text-zinc-950 dark:text-zinc-100">No saved outputs match the current filters</h3>
                   <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
                     Generate and save an update, or adjust the search and date range.
@@ -1156,10 +1324,30 @@ Next steps:
         ) : (
           /* ── HANDOVER TAB ── */
           <>
-            <section className="grid gap-5 xl:grid-cols-[1fr,1fr]">
+            <section className="grid gap-5 xl:grid-cols-[1.04fr,0.96fr]">
               {/* Left: Handover Form */}
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
-                <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 mb-4">Compose Shift Handover</h2>
+              <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Compose Shift Handover</h2>
+                    <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Capture completed work, live risks, and the next-shift plan in one briefing.</p>
+                  </div>
+                  <span className="app-hero-chip rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em]">
+                    Briefing Form
+                  </span>
+                </div>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {handoverQuickFill.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={preset.apply}
+                      className="app-control-surface rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-600 transition-colors hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-300"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
                 <form onSubmit={handleHandoverSubmit} className="space-y-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <Field label="Handover Title"><input required value={handoverForm.title} onChange={e => updateHandoverField('title', e.target.value)} className={inputClassName} placeholder="Night Shift Handover" /></Field>
@@ -1204,12 +1392,12 @@ Next steps:
                     <Field label="Next Shift Focus"><textarea value={handoverForm.nextShiftFocus} onChange={e => updateHandoverField('nextShiftFocus', e.target.value)} className={`${inputClassName} min-h-[100px] resize-y`} placeholder="Priority for next shift" /></Field>
                   </div>
                   <Field label="Shared Context"><textarea value={handoverForm.sharedContext} onChange={e => updateHandoverField('sharedContext', e.target.value)} className={`${inputClassName} min-h-[80px] resize-y`} placeholder="Team-wide context, reminders" /></Field>
-                  {handoverStatus && <div className="rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300">{handoverStatus}</div>}
+                  {handoverStatus && <div className="app-control-surface rounded-lg border px-3 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-300">{handoverStatus}</div>}
                   <div className="flex gap-2">
                     <button type="submit" className="app-accent-button rounded-xl px-4 py-2.5 text-sm font-bold transition-all hover:opacity-90 active:scale-95">
                       <CheckCircle2 className="w-4 h-4 inline mr-1.5" />{handoverEditingId ? 'Update' : 'Save'} Handover
                     </button>
-                    <button type="button" onClick={() => copyText(broadcastPreview, 'Broadcast')} className="rounded-xl px-4 py-2.5 text-sm font-bold border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all">
+                    <button type="button" onClick={() => copyText(broadcastPreview, 'Broadcast')} className="app-control-surface rounded-xl border px-4 py-2.5 text-sm font-bold text-zinc-600 transition-all hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-300">
                       <Copy className="w-4 h-4 inline mr-1.5" />Copy Summary
                     </button>
                     {handoverEditingId && <button type="button" onClick={resetHandoverForm} className="rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">Cancel</button>}
@@ -1218,25 +1406,35 @@ Next steps:
               </div>
 
               {/* Right: Broadcast Preview */}
-              <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+              <div className="space-y-5">
+              <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
                 <div className="flex items-center justify-between mb-3">
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Broadcast Preview</h2>
-                  <button onClick={() => copyText(broadcastPreview, 'Summary')} className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><Copy className="w-3.5 h-3.5 inline mr-1" />Copy</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => copyText(broadcastPreview, 'Summary')} className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><Copy className="w-3.5 h-3.5 inline mr-1" />Copy</button>
+                    <button onClick={() => downloadTextFile(`${sanitizeFileName(handoverForm.title || "shift-handover")}.txt`, broadcastPreview)} className="text-xs font-bold text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"><Download className="w-3.5 h-3.5 inline mr-1" />Export</button>
+                  </div>
                 </div>
-                <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4 min-h-[300px]">
+                <div className="app-control-surface rounded-lg border p-4 min-h-[300px]">
                   <div className="whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">{broadcastPreview}</div>
                 </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+                <MiniPlan label="Critical handovers" value={`${handoverStats.critical}`} />
+                <MiniPlan label="Saved today" value={`${handoverStats.today}`} />
+                <MiniPlan label="Default team" value={defaultTeam} />
+              </div>
               </div>
             </section>
 
             {/* Handover History */}
-            <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+            <section className="app-panel rounded-[var(--app-card-radius)] border p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
                   <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Saved Handovers</h2>
                   <p className="text-xs text-zinc-400 mt-0.5">{savedHandovers.length} total · {handoverStats.critical} critical · {handoverStats.today} today</p>
                 </div>
-                <label className="flex items-center gap-2 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 px-3 py-2 w-full sm:w-auto sm:max-w-xs">
+                <label className="app-control-surface flex w-full items-center gap-2 rounded-lg border px-3 py-2 sm:w-auto sm:max-w-xs">
                   <Search className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
                   <input value={handoverHistorySearch} onChange={e => setHandoverHistorySearch(e.target.value)}
                     placeholder="Search handovers..."
@@ -1245,7 +1443,7 @@ Next steps:
               </div>
               <div className="grid gap-3 xl:grid-cols-2">
                 {filteredHandovers.length > 0 ? filteredHandovers.slice(0, organizerConfig.maxHistoryItems).map(item => (
-                  <article key={item.id} className="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 p-4">
+                  <article key={item.id} className="app-control-surface rounded-lg border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -1280,7 +1478,6 @@ Next steps:
             </section>
           </>
         )}
-      </div>
     </div>
   );
 }
@@ -1305,7 +1502,7 @@ function Field({
 
 function HeroStat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 p-4">
+    <div className="app-panel rounded-[1.5rem] border p-4">
       <div className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400">{label}</div>
       <div className="mt-2 text-2xl font-black text-zinc-950 dark:text-zinc-100">{value}</div>
     </div>
@@ -1314,7 +1511,7 @@ function HeroStat({ label, value }: { label: string; value: number }) {
 
 function MiniPlan({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.25rem] border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-control-surface rounded-[1.25rem] border p-4">
       <div className="text-[11px] font-black uppercase tracking-[0.18em] text-zinc-400">{label}</div>
       <div className="mt-2 text-sm font-bold text-zinc-900 dark:text-zinc-100">{value}</div>
     </div>
@@ -1334,8 +1531,8 @@ function OptionToggle({
     <label
       className={`flex items-center gap-3 rounded-[1.25rem] border px-4 py-3 text-sm font-bold transition-all ${
         checked
-          ? "border-zinc-900 bg-zinc-900 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-black"
-          : "border-zinc-200 bg-white text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300"
+          ? "app-accent-button border-[rgba(var(--app-primary-rgb),0.45)]"
+          : "app-control-surface text-zinc-600 dark:text-zinc-300"
       }`}
     >
       <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="h-4 w-4 rounded accent-current" />
@@ -1358,10 +1555,10 @@ function SectionPreviewCard({
   lines: string[];
 }) {
   return (
-    <div className="rounded-[1.5rem] border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-control-surface rounded-[1.5rem] border p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="rounded-2xl bg-white p-3 text-zinc-700 shadow-sm dark:bg-zinc-950 dark:text-zinc-200">
+          <div className="app-panel rounded-2xl border p-3 text-zinc-700 shadow-sm dark:text-zinc-200">
             <Icon className="h-4 w-4" />
           </div>
           <div>
@@ -1369,7 +1566,7 @@ function SectionPreviewCard({
             <div className="text-xs text-zinc-500 dark:text-zinc-400">{helper}</div>
           </div>
         </div>
-        <div className="rounded-full bg-white px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 dark:bg-zinc-950 dark:text-zinc-300">
+        <div className="app-panel rounded-full border px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-300">
           {count}
         </div>
       </div>
@@ -1377,12 +1574,12 @@ function SectionPreviewCard({
       <div className="mt-4 space-y-2">
         {lines.length > 0 ? (
           lines.slice(0, 3).map((line, index) => (
-            <div key={`${label}-${index}`} className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300">
+            <div key={`${label}-${index}`} className="app-panel rounded-xl border px-3 py-2 text-sm text-zinc-600 dark:text-zinc-300">
               {line}
             </div>
           ))
         ) : (
-          <div className="rounded-xl border border-dashed border-zinc-200 bg-white px-3 py-3 text-sm text-zinc-400 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-500">
+          <div className="rounded-xl border border-dashed border-[rgba(var(--app-primary-rgb),0.14)] bg-[hsl(var(--muted)/0.52)] px-3 py-3 text-sm text-zinc-400 dark:text-zinc-500">
             Nothing detected yet.
           </div>
         )}
@@ -1392,10 +1589,10 @@ function SectionPreviewCard({
 }
 
 const inputClassName =
-  "w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm font-medium text-zinc-900 outline-none transition-all placeholder:text-zinc-400 focus:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500";
+  "app-input w-full rounded-2xl px-4 py-3 text-sm font-medium";
 
 const historyButtonClassName =
-  "rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200 dark:hover:bg-zinc-900";
+  "app-control-surface rounded-xl border px-3 py-2 text-xs font-bold text-zinc-700 transition-colors hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-200";
 
 const historyIconButtonClassName =
-  "rounded-xl border border-zinc-200 bg-white p-2 text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900";
+  "app-control-surface rounded-xl border p-2 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted)/0.72)] dark:text-zinc-300";

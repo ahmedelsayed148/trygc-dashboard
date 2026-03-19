@@ -246,14 +246,14 @@ export function CampaignsManager() {
   return (
     <div className="px-4 py-6 md:px-6">
       <div className="mx-auto max-w-screen-2xl space-y-6">
-        <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="app-hero-panel rounded-[2rem] border p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-400">Campaign Operations Matrix</p>
-              <h1 className="mt-2 text-3xl font-black text-zinc-900 dark:text-zinc-100">
+              <p className="app-hero-kicker text-xs font-black uppercase tracking-[0.24em]">Campaign Operations Matrix</p>
+              <h1 className="app-hero-title mt-2 text-3xl font-black">
                 Every campaign now carries editable subtasks for every team
               </h1>
-              <p className="mt-2 max-w-3xl text-sm text-zinc-500">
+              <p className="app-hero-copy mt-2 max-w-3xl text-sm">
                 Create a campaign once, then manage assignments, reassignment, and progress team by team from the same shared structure.
               </p>
             </div>
@@ -261,7 +261,7 @@ export function CampaignsManager() {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setBulkUploadOpen(true)}
-                className="rounded-2xl border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm font-bold text-zinc-700 transition-all hover:bg-zinc-200 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                className="rounded-2xl border border-[rgba(var(--app-primary-rgb),0.14)] bg-[rgba(var(--app-primary-rgb),0.06)] px-4 py-3 text-sm font-bold text-[hsl(var(--foreground))] transition-all hover:bg-[rgba(var(--app-primary-rgb),0.1)]"
               >
                 Bulk Upload
               </button>
@@ -586,12 +586,12 @@ function SummaryCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-hero-stat rounded-[1.75rem] border p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-400">{label}</p>
-        <Icon className="h-5 w-5 text-zinc-500" />
+        <p className="app-hero-kicker text-xs font-black uppercase tracking-[0.24em]">{label}</p>
+        <Icon className="h-5 w-5 app-hero-kicker" />
       </div>
-      <p className="mt-4 text-3xl font-black text-zinc-900 dark:text-zinc-100">{value}</p>
+      <p className="app-hero-title mt-4 text-3xl font-black">{value}</p>
     </div>
   );
 }

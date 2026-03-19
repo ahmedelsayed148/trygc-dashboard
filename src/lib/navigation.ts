@@ -11,7 +11,6 @@ import {
   FileText,
   Globe,
   LayoutDashboard,
-  LayoutGrid,
   MessageCircle,
   PieChart,
   Settings,
@@ -33,7 +32,7 @@ export interface NavItem {
   to: string;
 }
 
-export const FEATURE_NAV_MAP: Record<string, NavItem> = {
+export const FEATURE_NAV_MAP: Record<string, NavItem | undefined> = {
   dashboard: {
     id: "dashboard",
     to: "/",
@@ -107,13 +106,6 @@ export const FEATURE_NAV_MAP: Record<string, NavItem> = {
     icon: Languages,
   },
   handover: undefined, // removed
-  functions: {
-    id: "functions",
-    to: "/functions",
-    label: "Function Kanban",
-    description: "Cross-functional task view by team and workflow stage.",
-    icon: LayoutGrid,
-  },
   analytics: {
     id: "analytics",
     to: "/analytics",
@@ -196,7 +188,6 @@ export const DEFAULT_ADMIN_FEATURES = [
   "campaign-overview",
   "mistakes",
   "update-organizer",
-  "functions",
   "analytics",
   "member-views",
   "successes",
@@ -232,7 +223,6 @@ export const FEATURE_ORDER = [
   "campaigns",
   "mistakes",
   "update-organizer",
-  "functions",
   "analytics",
   "member-views",
   "successes",
@@ -247,7 +237,7 @@ export const FEATURE_ORDER = [
 
 export const NAV_SECTIONS = [
   { label: "Core", items: ["/", "/personal", "/community-team", "/widgets"] },
-  { label: "Operations", items: ["/campaign-overview", "/campaigns", "/tasks", "/tasks-daily-routines", "/mistakes", "/update-organizer", "/functions"] }, // campaign-overview is intentionally first
+  { label: "Operations", items: ["/campaign-overview", "/campaigns", "/tasks", "/tasks-daily-routines", "/mistakes", "/update-organizer"] }, // campaign-overview is intentionally first
   { label: "Insights", items: ["/analytics", "/member-views", "/successes", "/reports", "/archive"] },
   { label: "Admin", items: ["/user-management", "/data-export", "/data-import", "/settings", "/configuration"] },
 ];
@@ -323,7 +313,9 @@ export function getVisibleNavItems({
 }
 
 export function getCurrentNavItem(pathname: string) {
-  const items = Object.values(FEATURE_NAV_MAP).sort((left, right) => right.to.length - left.to.length);
+  const items = Object.values(FEATURE_NAV_MAP)
+    .filter((item): item is NavItem => Boolean(item))
+    .sort((left, right) => right.to.length - left.to.length);
   const exactMatch = items.find((item) =>
     item.end ? pathname === item.to : pathname.startsWith(item.to),
   );

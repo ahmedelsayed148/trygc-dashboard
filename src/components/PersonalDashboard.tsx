@@ -251,7 +251,7 @@ export function PersonalDashboard({ tasks, allTasks, userName, userEmail, onEdit
       <motion.div 
         whileHover={{ scale: 1.005 }}
         transition={{ duration: 0.3 }}
-        className="bg-gradient-to-br from-zinc-900 via-black to-zinc-800 text-white p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden ring-1 ring-white/10"
+        className="app-hero-panel p-8 rounded-[2.5rem] shadow-2xl relative overflow-hidden ring-1 ring-[rgba(var(--app-primary-rgb),0.08)]"
       >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.08),transparent_60%)]" />
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-zinc-600/20 blur-[80px] rounded-full" />
@@ -264,16 +264,16 @@ export function PersonalDashboard({ tasks, allTasks, userName, userEmail, onEdit
             transition={{ delay: 0.2, duration: 0.5 }}
           >
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl font-black border border-white/20 shadow-inner">
+              <div className="w-14 h-14 rounded-2xl app-hero-stat backdrop-blur-md flex items-center justify-center text-2xl font-black border shadow-inner">
                 {userName.substring(0, 2).toUpperCase()}
               </div>
               <div>
-                <h1 className="text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-zinc-400">Welcome, {userName.split(' ')[0]}!</h1>
-                <p className="text-white/50 text-sm font-medium">{userEmail}</p>
+                <h1 className="app-hero-title text-3xl font-black tracking-tight">Welcome, {userName.split(' ')[0]}!</h1>
+                <p className="app-hero-kicker text-sm font-medium">{userEmail}</p>
               </div>
             </div>
-            <p className="text-white/60 font-medium text-sm max-w-lg mt-2">
-              Here's your personal workspace overview. You have <span className="text-white font-bold">{myStats.total}</span> tasks assigned with <span className="text-white font-bold">{myStats.inProgress}</span> currently in progress.
+            <p className="app-hero-copy font-medium text-sm max-w-lg mt-2">
+              Here's your personal workspace overview. You have <span className="app-hero-title font-bold">{myStats.total}</span> tasks assigned with <span className="app-hero-title font-bold">{myStats.inProgress}</span> currently in progress.
             </p>
           </motion.div>
           <motion.div 
@@ -282,17 +282,17 @@ export function PersonalDashboard({ tasks, allTasks, userName, userEmail, onEdit
             transition={{ delay: 0.3, duration: 0.5 }}
             className="flex gap-4"
           >
-            <div className="bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 text-center shadow-lg">
-              <p className="text-3xl font-black">{myStats.completionRate}%</p>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">Completion</p>
+            <div className="app-hero-stat transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border text-center shadow-lg">
+              <p className="app-hero-title text-3xl font-black">{myStats.completionRate}%</p>
+              <p className="text-[10px] font-bold app-hero-kicker uppercase tracking-widest mt-1">Completion</p>
             </div>
-            <div className="bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 text-center shadow-lg">
-              <p className="text-3xl font-black">#{myRank.rank}</p>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">Team Rank</p>
+            <div className="app-hero-stat transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border text-center shadow-lg">
+              <p className="app-hero-title text-3xl font-black">#{myRank.rank}</p>
+              <p className="text-[10px] font-bold app-hero-kicker uppercase tracking-widest mt-1">Team Rank</p>
             </div>
-            <div className="bg-white/5 hover:bg-white/10 transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 text-center shadow-lg">
-              <p className="text-3xl font-black">{myRank.score}</p>
-              <p className="text-[10px] font-bold text-white/50 uppercase tracking-widest mt-1">Points</p>
+            <div className="app-hero-stat transition-colors backdrop-blur-md px-6 py-4 rounded-2xl border text-center shadow-lg">
+              <p className="app-hero-title text-3xl font-black">{myRank.score}</p>
+              <p className="text-[10px] font-bold app-hero-kicker uppercase tracking-widest mt-1">Points</p>
             </div>
           </motion.div>
         </div>

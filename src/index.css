@@ -245,6 +245,138 @@
       hsl(var(--background));
   }
 
+  .app-panel {
+    background:
+      linear-gradient(180deg, rgba(var(--app-secondary-rgb), 0.06), transparent 62%),
+      hsl(var(--card) / 0.94);
+    border-color: rgba(var(--app-primary-rgb), 0.1);
+    box-shadow:
+      0 22px 44px -34px rgba(15, 23, 42, 0.28),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.03);
+    backdrop-filter: blur(18px);
+  }
+
+  .dark .app-panel {
+    box-shadow:
+      0 24px 46px -30px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.05);
+  }
+
+  .app-panel-muted {
+    background: hsl(var(--muted) / 0.82);
+    border-color: rgba(var(--app-primary-rgb), 0.08);
+  }
+
+  .app-control-surface {
+    background: hsl(var(--card) / 0.96);
+    border-color: rgba(var(--app-primary-rgb), 0.12);
+    box-shadow:
+      0 10px 24px -20px rgba(15, 23, 42, 0.34),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.03);
+  }
+
+  .dark .app-control-surface {
+    background: hsl(var(--card) / 0.94);
+    box-shadow:
+      0 12px 28px -22px rgba(0, 0, 0, 0.45),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.05);
+  }
+
+  .app-menu-surface {
+    background: hsl(var(--card));
+    border-color: rgba(var(--app-primary-rgb), 0.12);
+    box-shadow:
+      0 28px 44px -28px rgba(15, 23, 42, 0.34),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.04);
+  }
+
+  .dark .app-menu-surface {
+    background: hsl(var(--card));
+    box-shadow:
+      0 28px 44px -24px rgba(0, 0, 0, 0.5),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.06);
+  }
+
+  .app-shell-chrome {
+    background:
+      linear-gradient(180deg, rgba(var(--app-secondary-rgb), 0.08), transparent 100%),
+      hsl(var(--background) / 0.9);
+    border-color: rgba(var(--app-primary-rgb), 0.1);
+  }
+
+  .app-shell-divider {
+    border-color: rgba(var(--app-primary-rgb), 0.1);
+  }
+
+  .app-hero-panel {
+    background:
+      linear-gradient(135deg, rgba(var(--app-primary-rgb), 0.08), rgba(var(--app-secondary-rgb), 0.2) 56%, rgba(var(--app-primary-rgb), 0.04)),
+      hsl(var(--card));
+    color: hsl(var(--foreground));
+    border-color: rgba(var(--app-primary-rgb), 0.12);
+    box-shadow:
+      0 28px 60px -34px rgba(var(--app-primary-rgb), 0.18),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.06);
+  }
+
+  .dark .app-hero-panel {
+    background:
+      linear-gradient(135deg, rgba(var(--app-primary-rgb), 0.94), rgba(var(--app-primary-rgb), 0.76) 56%, rgba(var(--app-secondary-rgb), 0.24)),
+      hsl(var(--foreground));
+    color: rgb(var(--app-primary-contrast-rgb));
+    box-shadow:
+      0 28px 60px -34px rgba(var(--app-primary-rgb), 0.72),
+      0 0 0 1px rgba(var(--app-primary-rgb), 0.08);
+  }
+
+  .app-hero-kicker {
+    color: hsl(var(--foreground) / 0.55);
+  }
+
+  .dark .app-hero-kicker {
+    color: rgba(var(--app-primary-contrast-rgb), 0.58);
+  }
+
+  .app-hero-title {
+    color: hsl(var(--foreground));
+  }
+
+  .dark .app-hero-title {
+    color: rgb(var(--app-primary-contrast-rgb));
+  }
+
+  .app-hero-copy {
+    color: hsl(var(--foreground) / 0.72);
+  }
+
+  .dark .app-hero-copy {
+    color: rgba(var(--app-primary-contrast-rgb), 0.72);
+  }
+
+  .app-hero-chip {
+    border-color: rgba(var(--app-primary-rgb), 0.14);
+    background: rgba(var(--app-primary-rgb), 0.08);
+    color: hsl(var(--foreground) / 0.78);
+  }
+
+  .dark .app-hero-chip {
+    border-color: rgba(var(--app-primary-contrast-rgb), 0.15);
+    background: rgba(var(--app-primary-contrast-rgb), 0.08);
+    color: rgba(var(--app-primary-contrast-rgb), 0.78);
+  }
+
+  .app-hero-stat {
+    background: rgba(var(--app-primary-rgb), 0.06);
+    color: hsl(var(--foreground));
+    border-color: rgba(var(--app-primary-rgb), 0.1);
+  }
+
+  .dark .app-hero-stat {
+    background: rgba(var(--app-primary-contrast-rgb), 0.06);
+    color: rgb(var(--app-primary-contrast-rgb));
+    border-color: rgba(var(--app-primary-contrast-rgb), 0.1);
+  }
+
   .route-page-layout > * {
     width: 100%;
     max-width: none !important;
@@ -273,6 +405,21 @@
 
   .app-accent-button:hover {
     filter: brightness(0.95);
+  }
+
+  .app-input {
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid rgba(var(--app-primary-rgb), 0.08);
+    background: hsl(var(--card) / 0.96);
+    padding: 0.75rem 0.95rem;
+    font-size: 0.925rem;
+    line-height: 1.4;
+    color: hsl(var(--foreground));
+  }
+
+  .app-input::placeholder {
+    color: hsl(var(--muted-foreground));
   }
 
   .app-muted-accent {

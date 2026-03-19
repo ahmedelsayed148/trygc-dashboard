@@ -251,7 +251,7 @@ function SystemSection({ config, onChange }: { config: AppConfiguration['system'
                   }}
                   className={`rounded-2xl border p-3 text-left transition-all ${
                     active
-                      ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black'
+                      ? 'border-transparent app-accent-button'
                       : 'border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 hover:bg-white dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-700'
                   }`}
                 >
@@ -260,7 +260,7 @@ function SystemSection({ config, onChange }: { config: AppConfiguration['system'
                     <span className="h-5 w-5 rounded-full border border-black/10 dark:border-white/10" style={{ backgroundColor: preset.secondaryColor }} />
                   </div>
                   <div className="mt-3 text-xs font-black uppercase tracking-[0.16em]">{preset.label}</div>
-                  <div className={`mt-1 text-[11px] font-medium ${active ? 'text-white/80 dark:text-black/70' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                  <div className={`mt-1 text-[11px] font-medium ${active ? 'text-[rgba(var(--app-primary-contrast-rgb),0.78)]' : 'text-zinc-500 dark:text-zinc-400'}`}>
                     {preset.description}
                   </div>
                 </button>

@@ -123,7 +123,7 @@ export function TopBar({
   return (
     <>
       <header
-        className="app-topbar-gradient sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white/95 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-950/95"
+        className="app-shell-chrome app-topbar-gradient sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b backdrop-blur-xl"
         style={{ paddingInline: 'var(--app-topbar-padding-x)' }}
       >
         <button
@@ -145,11 +145,11 @@ export function TopBar({
 
         <button
           onClick={onOpenCommandPalette}
-          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors w-64"
+          className="hidden w-64 items-center gap-2 rounded-xl border border-transparent bg-[hsl(var(--muted)/0.72)] px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:border-[rgba(var(--app-primary-rgb),0.14)] hover:bg-[hsl(var(--muted)/0.96)] dark:text-zinc-400 md:flex"
         >
           <Search className="w-4 h-4 shrink-0" />
           <span className="flex-1 text-left">Search or jump to…</span>
-          <kbd className="hidden sm:flex items-center gap-0.5 text-xs bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 px-1.5 py-0.5 rounded font-mono">
+          <kbd className="hidden items-center gap-0.5 rounded border border-white/10 bg-[hsl(var(--card)/0.88)] px-1.5 py-0.5 font-mono text-xs sm:flex">
             ⌘K
           </kbd>
         </button>
@@ -167,7 +167,7 @@ export function TopBar({
 
           <button
             onClick={onRefreshWorkspace}
-            className="p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="rounded-xl p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted)/0.9)]"
             title="Refresh workspace"
           >
             <RefreshCw className="w-4 h-4" />
@@ -175,14 +175,14 @@ export function TopBar({
 
           <button
             onClick={() => setIsSOPOpen(true)}
-            className="px-3 py-1.5 rounded-lg text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors font-medium"
+            className="rounded-xl bg-[hsl(var(--muted)/0.72)] px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors hover:bg-[hsl(var(--muted)/0.96)] dark:text-zinc-300"
           >
             SOP
           </button>
 
           <button
             onClick={onOpenSuccess}
-            className="px-3 py-1.5 rounded-lg text-sm bg-zinc-900 dark:bg-zinc-50 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-colors font-medium"
+            className="app-accent-button rounded-xl px-3 py-1.5 text-sm font-medium transition-colors"
           >
             Add Update
           </button>
@@ -190,7 +190,7 @@ export function TopBar({
           {isAdmin && (
             <button
               onClick={onOpenUpload}
-              className="px-3 py-1.5 rounded-lg text-sm bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-50 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors font-medium inline-flex items-center gap-2"
+              className="inline-flex items-center gap-2 rounded-xl border border-[rgba(var(--app-primary-rgb),0.14)] bg-[hsl(var(--card)/0.78)] px-3 py-1.5 text-sm font-medium text-zinc-900 transition-colors hover:bg-[hsl(var(--card)/0.98)] dark:text-zinc-50"
             >
               <Upload className="w-4 h-4" />
               Upload
@@ -205,7 +205,7 @@ export function TopBar({
           <button
             ref={notifButtonRef}
             onClick={() => setIsNotifOpen((current) => !current)}
-            className="relative p-1.5 rounded-lg text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="relative rounded-xl p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted)/0.9)]"
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
@@ -222,7 +222,7 @@ export function TopBar({
         <div className="relative">
           <button
             onClick={() => setIsUserMenuOpen((current) => !current)}
-            className="flex items-center gap-2 p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+            className="flex items-center gap-2 rounded-xl p-1 transition-colors hover:bg-[hsl(var(--muted)/0.9)]"
           >
             <div className={cn('w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold', getAvatarColor(userName || userEmail))}>
               {initials(userName || userEmail)}
@@ -241,11 +241,11 @@ export function TopBar({
           {isUserMenuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setIsUserMenuOpen(false)} />
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xl z-20 py-1">
-                <div className="px-3 py-2 border-b border-zinc-100 dark:border-zinc-800 mb-1">
+          <div className="app-menu-surface absolute right-0 top-full z-20 mt-2 w-52 rounded-2xl border py-1 shadow-xl">
+                <div className="app-shell-divider mb-1 border-b px-3 py-2">
                   <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">{userName || userEmail}</p>
                   <p className="text-xs text-zinc-500 dark:text-zinc-400">{userEmail}</p>
-                  <span className="mt-1 inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400">
+                  <span className="mt-1 inline-block rounded-full border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.9)] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                     {isAdmin ? 'Admin' : 'Member'}
                   </span>
                 </div>

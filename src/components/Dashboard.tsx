@@ -20,6 +20,7 @@ import {
   ChevronRight,
   Flame,
   Star,
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActiveUsersWidget } from './ActiveUsersWidget';
@@ -58,8 +59,9 @@ const stagger = {
 
 export function Dashboard() {
   const ctx = useContext(AppContext);
-  const tasks = (ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || []) as TaskLike[];
-  const successLogs = (ctx?.successLogs || []) as SuccessLike[];
+  const operationalTasks = ctx?.operationalTasks;
+  const fallbackTasks = ctx?.tasks;
+  const rawSuccessLogs = ctx?.successLogs;
   const userName = ctx?.userName || '';
   const userEmail = ctx?.userEmail || '';
   const isAdmin = ctx?.isAdmin || false;
@@ -73,9 +75,16 @@ export function Dashboard() {
   };
 
   const myTasks = useMemo(() => {
-    if (isAdmin) return tasks;
-    return tasks.filter((t: any) => isTaskAssignedToUser(t, { userEmail, userName }));
-  }, [tasks, isAdmin, userName, userEmail]);
+    const sourceTasks = (operationalTasks?.length ? operationalTasks : fallbackTasks) ?? [];
+    const typedTasks = sourceTasks as TaskLike[];
+    if (isAdmin) return typedTasks;
+    return typedTasks.filter((task) => isTaskAssignedToUser(task, { userEmail, userName }));
+  }, [fallbackTasks, isAdmin, operationalTasks, userEmail, userName]);
+
+  const filteredSuccessesSource = useMemo(
+    () => (rawSuccessLogs ?? []) as SuccessLike[],
+    [rawSuccessLogs],
+  );
 
   const filteredTasks = useMemo(
     () => filterByDateRange(myTasks, dateRange, (task: TaskLike) => task.endDateTime || task.startDateTime || task.createdAt),
@@ -83,8 +92,8 @@ export function Dashboard() {
   );
 
   const filteredSuccesses = useMemo(
-    () => filterByDateRange(successLogs, dateRange, (log: SuccessLike) => log.timestamp || log.createdAt || log.date),
-    [dateRange, successLogs],
+    () => filterByDateRange(filteredSuccessesSource, dateRange, (log: SuccessLike) => log.timestamp || log.createdAt || log.date),
+    [dateRange, filteredSuccessesSource],
   );
 
   const stats = useMemo(() => {
@@ -168,33 +177,43 @@ export function Dashboard() {
     >
       {/* Hero Header */}
       <motion.div variants={stagger.item}>
-        <div className="relative overflow-hidden rounded-[var(--app-card-radius)] bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 p-6 md:p-8">
-          {/* Subtle grid pattern */}
-          <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
-            style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
-          {/* Glow */}
-          <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+        <div className="app-hero-panel relative overflow-hidden rounded-[var(--app-card-radius)] border p-6 md:p-8">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.14]"
+            style={{
+              backgroundImage: 'radial-gradient(circle, rgba(var(--app-primary-contrast-rgb), 0.22) 1px, transparent 1px)',
+              backgroundSize: '26px 26px',
+            }}
+          />
+          <div
+            className="pointer-events-none absolute -top-24 -right-16 h-72 w-72 rounded-full blur-3xl"
+            style={{ background: 'rgba(var(--app-secondary-rgb), 0.22)' }}
+          />
+          <div
+            className="pointer-events-none absolute -bottom-20 left-0 h-56 w-56 rounded-full blur-3xl"
+            style={{ background: 'rgba(var(--app-primary-rgb), 0.18)' }}
+          />
 
           <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-500 mb-1">{greeting}</p>
-              <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
+              <p className="app-hero-kicker mb-1 text-xs font-bold uppercase tracking-[0.2em]">{greeting}</p>
+              <h1 className="app-hero-title text-2xl font-black tracking-tight md:text-3xl">
                 {displayName}
               </h1>
-              <p className="mt-1.5 text-sm font-medium text-zinc-400">
+              <p className="app-hero-copy mt-1.5 max-w-2xl text-sm font-medium">
                 {isAdmin
                   ? `${stats.total} tasks across the team · ${stats.overdue > 0 ? `${stats.overdue} overdue` : 'all on track'}`
                   : `${stats.total} tasks assigned · ${stats.completionRate}% completion rate`}
               </p>
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
-              <div className="rounded-xl border border-zinc-700 bg-zinc-800/60 px-3 py-2 text-xs font-bold text-zinc-300 flex items-center gap-2">
-                <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+              <div className="app-hero-chip rounded-xl border px-3 py-2 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
+                <Calendar className="app-hero-kicker h-3.5 w-3.5" />
                 {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
               </div>
               {stats.overdue > 0 && (
-                <div className="rounded-xl border border-red-800/50 bg-red-900/30 px-3 py-2 text-xs font-bold text-red-400 flex items-center gap-1.5">
-                  <AlertCircle className="w-3.5 h-3.5" />
+                <div className="app-hero-chip rounded-xl border bg-red-500/16 px-3 py-2 text-xs font-bold flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
                   {stats.overdue} overdue
                 </div>
               )}
@@ -205,15 +224,16 @@ export function Dashboard() {
           {stats.total > 0 && (
             <div className="relative mt-5">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">Team Progress</span>
-                <span className="text-[11px] font-black text-zinc-300">{stats.completionRate}%</span>
+                <span className="app-hero-kicker text-[11px] font-bold uppercase tracking-wider">Team Progress</span>
+                <span className="app-hero-copy text-[11px] font-black">{stats.completionRate}%</span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-zinc-800 overflow-hidden">
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/12">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${stats.completionRate}%` }}
                   transition={{ duration: 0.8, ease: EASE, delay: 0.3 }}
-                  className="h-full rounded-full bg-white"
+                  className="h-full rounded-full"
+                  style={{ background: 'rgb(var(--app-secondary-rgb))' }}
                 />
               </div>
             </div>
@@ -270,7 +290,7 @@ export function Dashboard() {
       {/* Middle Row */}
       <motion.div variants={stagger.item} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Achievement */}
-        <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+        <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Achievement</span>
             <Target className="w-4 h-4 text-zinc-400" />
@@ -298,7 +318,7 @@ export function Dashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+        <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Quick Actions</span>
             <Zap className="w-4 h-4 text-zinc-400" />
@@ -307,7 +327,6 @@ export function Dashboard() {
             <ActionRow label="View All Tasks" to={isAdmin ? '/tasks' : '/personal'} navigate={navigate} primary />
             {isAdmin && (
               <>
-                <ActionRow label="Function Kanban" to="/functions" navigate={navigate} />
                 <ActionRow label="Team Analytics" to="/analytics" navigate={navigate} />
                 <ActionRow label="Member Views" to="/member-views" navigate={navigate} />
               </>
@@ -318,7 +337,7 @@ export function Dashboard() {
         </div>
 
         {/* Blocked / Status breakdown */}
-        <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+        <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Status Breakdown</span>
             <BarChart3 className="w-4 h-4 text-zinc-400" />
@@ -359,7 +378,7 @@ export function Dashboard() {
       {/* Bottom Row */}
       <motion.div variants={stagger.item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent Tasks */}
-        <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+        <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
             <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Recent Tasks</span>
             <button
@@ -392,7 +411,7 @@ export function Dashboard() {
 
         {/* Team Performance (admin) or Recent Successes (member) */}
         {isAdmin ? (
-          <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+          <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Top Performers</span>
               <button
@@ -428,7 +447,7 @@ export function Dashboard() {
             </div>
           </div>
         ) : (
-          <div className="rounded-[var(--app-card-radius)] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-5">
+          <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
             <div className="flex items-center justify-between mb-4">
               <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Recent Successes</span>
               <button
@@ -464,7 +483,7 @@ export function Dashboard() {
 }
 
 function StatCard({ label, value, icon: Icon, sub, accent, danger, onClick }: {
-  label: string; value: number; icon: any; sub: string;
+  label: string; value: number; icon: LucideIcon; sub: string;
   accent?: boolean; danger?: boolean; onClick?: () => void;
 }) {
   return (
@@ -475,15 +494,16 @@ function StatCard({ label, value, icon: Icon, sub, accent, danger, onClick }: {
         danger && value > 0
           ? 'border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20'
           : accent
-          ? 'border-zinc-900 dark:border-zinc-100 bg-zinc-900 dark:bg-zinc-100'
-          : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950'
+          ? 'border-transparent text-[rgb(var(--app-primary-contrast-rgb))]'
+          : 'app-panel'
       )}
+      style={accent ? { background: 'var(--app-primary)' } : undefined}
     >
       <div className="flex items-start justify-between mb-3">
         <div className={cn(
           'w-9 h-9 rounded-xl flex items-center justify-center',
           danger && value > 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
-          accent ? 'bg-white/20 text-white dark:text-zinc-900' :
+          accent ? 'bg-white/18 text-white' :
           'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
         )}>
           <Icon className="w-4 h-4" />
@@ -496,20 +516,20 @@ function StatCard({ label, value, icon: Icon, sub, accent, danger, onClick }: {
       <div className={cn(
         'text-3xl font-black mb-0.5',
         danger && value > 0 ? 'text-red-600 dark:text-red-400' :
-        accent ? 'text-white dark:text-zinc-900' :
-        'text-zinc-900 dark:text-zinc-50'
+          accent ? 'text-white' :
+          'text-zinc-900 dark:text-zinc-50'
       )}>
         {value}
       </div>
       <div className={cn(
         'text-[11px] font-black uppercase tracking-wider mb-0.5',
-        accent ? 'text-white/70 dark:text-zinc-900/70' : 'text-zinc-400'
+        accent ? 'text-white/70' : 'text-zinc-400'
       )}>
         {label}
       </div>
       <div className={cn(
         'text-[11px] font-medium',
-        accent ? 'text-white/50 dark:text-zinc-900/50' : 'text-zinc-400'
+        accent ? 'text-white/50' : 'text-zinc-400'
       )}>
         {sub}
       </div>
@@ -517,7 +537,9 @@ function StatCard({ label, value, icon: Icon, sub, accent, danger, onClick }: {
   );
 }
 
-function ActionRow({ label, to, navigate, primary }: { label: string; to: string; navigate: any; primary?: boolean }) {
+type NavigateFn = ReturnType<typeof useNavigate>;
+
+function ActionRow({ label, to, navigate, primary }: { label: string; to: string; navigate: NavigateFn; primary?: boolean }) {
   return (
     <button
       onClick={() => navigate(to)}
@@ -560,7 +582,7 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function EmptyState({ icon: Icon, message }: { icon: any; message: string }) {
+function EmptyState({ icon: Icon, message }: { icon: LucideIcon; message: string }) {
   return (
     <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
       <Icon className="w-10 h-10 mb-2 opacity-20" />

@@ -68,12 +68,12 @@ function SummaryCard({
   icon: React.ElementType;
 }) {
   return (
-    <div className="rounded-[1.75rem] border border-zinc-200 bg-zinc-50 p-5 dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="app-hero-stat rounded-[1.75rem] border p-5">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-400">{label}</p>
-        <Icon className="h-5 w-5 text-zinc-500" />
+        <p className="app-hero-kicker text-xs font-black uppercase tracking-[0.24em]">{label}</p>
+        <Icon className="h-5 w-5 app-hero-kicker" />
       </div>
-      <p className="mt-4 text-3xl font-black text-zinc-900 dark:text-zinc-100">{value}</p>
+      <p className="app-hero-title mt-4 text-3xl font-black">{value}</p>
     </div>
   );
 }
@@ -139,6 +139,24 @@ function PriorityBadge({ priority }: { priority: string }) {
 }
 
 type ChecklistEditState = { sectionId: string; itemId: string; field: 'text' | 'notes' } | null;
+type TeamMemberOption = { email: string; name?: string; teamName?: string };
+type TaskNotificationRecord = {
+  id: string;
+  type: string;
+  taskId: string;
+  taskName: string;
+  taskDescription: string;
+  assignedTo: string;
+  assignedToName: string;
+  assignedBy: string;
+  timestamp: string;
+  time: string;
+  date: string;
+  read: boolean;
+};
+const EMPTY_TEAM_MEMBERS: Array<{ email: string; name?: string; teamName?: string }> = [];
+const NOOP_SET_TASK_NOTIFICATIONS: React.Dispatch<React.SetStateAction<TaskNotificationRecord[]>> = () => undefined;
+const NOOP_SET_COMMUNITY_WORKSPACE: React.Dispatch<React.SetStateAction<CommunityWorkspace>> = () => undefined;
 
 function ChecklistItemRow({
   item,
@@ -509,11 +527,14 @@ function ChecklistsPanel({
 
 export function CommunityTeam() {
   const ctx = useContext(AppContext);
-  const teamMembers = ctx?.teamMembers || [];
+  const teamMembers = ctx?.teamMembers ?? EMPTY_TEAM_MEMBERS;
   const userEmail = ctx?.userEmail || '';
-  const setTaskNotifications = ctx?.setTaskNotifications || (() => {});
-  const workspace = normalizeCommunityWorkspace(ctx?.communityWorkspace || createEmptyCommunityWorkspace());
-  const setCommunityWorkspace = ctx?.setCommunityWorkspace || (() => {});
+  const setTaskNotifications = ctx?.setTaskNotifications ?? NOOP_SET_TASK_NOTIFICATIONS;
+  const workspace = useMemo(
+    () => normalizeCommunityWorkspace(ctx?.communityWorkspace || createEmptyCommunityWorkspace()),
+    [ctx?.communityWorkspace],
+  );
+  const setCommunityWorkspace = ctx?.setCommunityWorkspace ?? NOOP_SET_COMMUNITY_WORKSPACE;
   const [saving, setSaving] = useState(false);
   const [expandedCountries, setExpandedCountries] = useState<string[]>([COUNTRIES[0].id]);
   const [search, setSearch] = useState('');
@@ -524,7 +545,7 @@ export function CommunityTeam() {
   const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
   const platformMembers = useMemo(() => {
-    return (teamMembers || []).map((member: any) => ({
+    return teamMembers.map((member: TeamMemberOption) => ({
       email: member.email,
       name: member.name || member.email,
       teamName: member.teamName || '',
@@ -650,7 +671,7 @@ export function CommunityTeam() {
     }));
 
     if (country) {
-      setTaskNotifications((current: any[]) =>
+      setTaskNotifications((current: TaskNotificationRecord[]) =>
         appendAssignmentNotification({
           currentNotifications: current,
           previousTask: taskModalState.task,
@@ -683,15 +704,15 @@ export function CommunityTeam() {
   return (
     <div className="px-4 py-6 md:px-6">
       <div className="mx-auto max-w-screen-2xl space-y-6">
-        <section className="rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
+        <section className="app-hero-panel rounded-[2rem] border p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.24em] text-zinc-400">Community Operations Matrix</p>
-              <h1 className="mt-2 text-3xl font-black text-zinc-900 dark:text-zinc-100">Community team distribution now follows the campaigns workflow</h1>
-              <p className="mt-2 max-w-3xl text-sm text-zinc-500">Markets keep their own criteria and methodology playbooks while using the same shared assignment flow and task tracking model.</p>
+              <p className="app-hero-kicker text-xs font-black uppercase tracking-[0.24em]">Community Operations Matrix</p>
+              <h1 className="app-hero-title mt-2 text-3xl font-black">Community team distribution now follows the campaigns workflow</h1>
+              <p className="app-hero-copy mt-2 max-w-3xl text-sm">Markets keep their own criteria and methodology playbooks while using the same shared assignment flow and task tracking model.</p>
             </div>
             {saving && (
-              <div className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-bold text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+              <div className="app-hero-stat inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-xs font-bold">
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                 Saving
               </div>

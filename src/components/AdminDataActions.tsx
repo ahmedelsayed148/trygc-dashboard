@@ -108,7 +108,7 @@ export function AdminDataActions() {
           <button
             onClick={() => setClearTasksOpen(true)}
             disabled={taskCount === 0}
-            className="px-6 py-3 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black rounded-xl font-bold hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-all flex items-center gap-2 disabled:opacity-50"
+            className="app-accent-button px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <ListX className="w-4 h-4" />
             Clear Tasks
@@ -131,7 +131,7 @@ export function AdminDataActions() {
           <button
             onClick={() => setClearAllOpen(true)}
             disabled={isClearingAll}
-            className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center gap-2 disabled:opacity-50"
+            className="app-accent-button px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 disabled:opacity-50"
           >
             <Trash2 className="w-4 h-4" />
             Clear All Data
@@ -218,7 +218,7 @@ function ConfirmationModal({
           <button
             onClick={onConfirm}
             disabled={isBusy}
-            className="flex-1 py-4 bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black rounded-[1.5rem] font-bold shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+            className="flex-1 py-4 app-accent-button rounded-[1.5rem] font-bold shadow-xl transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : icon}
             {confirmLabel}

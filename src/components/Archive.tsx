@@ -53,17 +53,17 @@ export function Archive() {
   return (
     <div className="px-4 py-6 md:px-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-3xl p-8 text-white shadow-xl">
+      <div className="app-hero-panel rounded-3xl border p-8 shadow-xl">
         <div className="flex items-center gap-4 mb-4">
-          <div className="w-16 h-16 bg-white/15 backdrop-blur-sm rounded-2xl flex items-center justify-center border border-white/20">
-            <ArchiveIcon className="w-8 h-8" />
+          <div className="w-16 h-16 app-hero-stat backdrop-blur-sm rounded-2xl flex items-center justify-center border">
+            <ArchiveIcon className="w-8 h-8 app-hero-title" />
           </div>
           <div>
-            <h1 className="text-4xl font-black mb-1">Archive</h1>
-            <p className="text-zinc-300 text-lg font-medium">Completed tasks and historical records</p>
+            <h1 className="app-hero-title text-4xl font-black mb-1">Archive</h1>
+            <p className="app-hero-copy text-lg font-medium">Completed tasks and historical records</p>
           </div>
         </div>
-        <div className="flex items-center gap-6 text-white/90">
+        <div className="flex items-center gap-6 app-hero-copy">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5" />
             <span className="text-sm font-bold">{archivedTasks.length} Completed Tasks</span>

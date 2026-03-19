@@ -321,25 +321,25 @@ export function PlatformDemo() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white p-8 overflow-y-auto">
+    <div className="app-shell-background min-h-screen p-8 overflow-y-auto">
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-8">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-white to-zinc-300 flex items-center justify-center">
-              <Sparkles className="w-7 h-7 text-black" />
+            <div className="w-14 h-14 rounded-2xl app-accent-button flex items-center justify-center">
+              <Sparkles className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-3xl font-black">Welcome, {userName}! 👋</h1>
-              <p className="text-zinc-400 font-medium">Let's explore your campaign management platform</p>
+              <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-100">Welcome, {userName}! 👋</h1>
+              <p className="text-zinc-500 dark:text-zinc-400 font-medium">Let's explore your campaign management platform</p>
             </div>
           </div>
           <button
             onClick={handleSkip}
-            className="p-2 hover:bg-zinc-800 rounded-lg transition-all group"
+            className="p-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded-lg transition-all group"
             title="Skip Demo"
           >
-            <X className="w-5 h-5 text-zinc-400 group-hover:text-white" />
+            <X className="w-5 h-5 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-100" />
           </button>
         </div>
       </div>
@@ -347,12 +347,12 @@ export function PlatformDemo() {
       {/* Progress Bar */}
       <div className="max-w-6xl mx-auto mb-12">
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-sm font-black text-white">
+          <span className="text-sm font-black text-zinc-900 dark:text-zinc-100">
             Step {currentStep + 1} of {steps.length}
           </span>
-          <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="flex-1 h-2 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
             <div
-              className="h-full bg-white transition-all duration-500 ease-out"
+              className="h-full bg-zinc-900 dark:bg-zinc-100 transition-all duration-500 ease-out"
               style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
             />
           </div>
@@ -365,7 +365,7 @@ export function PlatformDemo() {
             <div
               key={index}
               className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                index <= currentStep ? 'bg-white' : 'bg-zinc-800'
+                index <= currentStep ? 'bg-zinc-900 dark:bg-zinc-100' : 'bg-zinc-200 dark:bg-zinc-800'
               }`}
             />
           ))}
@@ -375,22 +375,22 @@ export function PlatformDemo() {
       {/* Main Content */}
       <div className="max-w-6xl mx-auto">
         <div
-          className={`bg-gradient-to-br ${currentStepData.color} rounded-[3rem] p-12 mb-8 relative overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-500`}
+          className={`app-hero-panel rounded-[3rem] p-12 mb-8 relative overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-500 border`}
         >
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.08),transparent_60%)] dark:bg-[radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.1),transparent_60%)]" />
           <div className="relative z-10">
             <div className="flex items-start gap-6 mb-8">
-              <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/30 shrink-0">
-                <currentStepData.icon className="w-10 h-10 text-white" />
+              <div className="w-20 h-20 rounded-3xl app-hero-stat backdrop-blur-sm flex items-center justify-center border shrink-0">
+                <currentStepData.icon className="w-10 h-10 app-hero-title" />
               </div>
               <div className="flex-1">
-                <div className="inline-block px-4 py-1 bg-white/20 backdrop-blur-sm rounded-full text-xs font-black text-white mb-3 border border-white/30">
+                <div className="app-hero-chip inline-block px-4 py-1 backdrop-blur-sm rounded-full text-xs font-black mb-3 border">
                   FEATURE #{currentStepData.id}
                 </div>
-                <h2 className="text-4xl font-black text-white mb-4 tracking-tight">
+                <h2 className="app-hero-title text-4xl font-black mb-4 tracking-tight">
                   {currentStepData.title}
                 </h2>
-                <p className="text-xl text-white/80 font-medium leading-relaxed">
+                <p className="text-xl app-hero-copy font-medium leading-relaxed">
                   {currentStepData.description}
                 </p>
               </div>
@@ -401,11 +401,11 @@ export function PlatformDemo() {
               {currentStepData.features.map((feature, index) => (
                 <div
                   key={index}
-                  className="flex items-start gap-3 bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20 animate-in slide-in-from-left duration-500"
+                  className="flex items-start gap-3 app-hero-stat backdrop-blur-sm rounded-2xl p-4 border animate-in slide-in-from-left duration-500"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <CheckCircle2 className="w-5 h-5 text-white shrink-0 mt-0.5" />
-                  <span className="text-sm font-bold text-white">{feature}</span>
+                  <CheckCircle2 className="w-5 h-5 app-hero-title shrink-0 mt-0.5" />
+                  <span className="text-sm font-bold app-hero-title">{feature}</span>
                 </div>
               ))}
             </div>
@@ -415,7 +415,7 @@ export function PlatformDemo() {
               <div className="mt-8">
                 <button
                   onClick={handleGoToPage}
-                  className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-2xl font-black text-sm hover:bg-white/90 transition-all shadow-xl"
+                  className="app-accent-button flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-xl"
                 >
                   <Play className="w-4 h-4" />
                   Try This Feature Now
@@ -430,7 +430,7 @@ export function PlatformDemo() {
           <button
             onClick={handlePrevious}
             disabled={currentStep === 0}
-            className="flex items-center gap-2 px-6 py-3 bg-zinc-800 text-white rounded-2xl font-black text-sm hover:bg-zinc-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-6 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 rounded-2xl font-black text-sm hover:bg-zinc-300 dark:hover:bg-zinc-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ArrowLeft className="w-4 h-4" />
             Previous
@@ -443,10 +443,10 @@ export function PlatformDemo() {
                 onClick={() => setCurrentStep(index)}
                 className={`w-3 h-3 rounded-full transition-all ${
                   index === currentStep
-                    ? 'bg-white w-8'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 w-8'
                     : index < currentStep
                     ? 'bg-zinc-500'
-                    : 'bg-zinc-700'
+                    : 'bg-zinc-300 dark:bg-zinc-700'
                 }`}
                 title={`Step ${index + 1}`}
               />
@@ -457,7 +457,7 @@ export function PlatformDemo() {
             <button
               onClick={() => completeDemo()}
               disabled={isCompleting}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-2xl font-black text-sm hover:bg-zinc-200 transition-all disabled:opacity-50 shadow-xl"
+              className="app-accent-button flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all disabled:opacity-50 shadow-xl"
             >
               {isCompleting ? (
                 <>
@@ -474,7 +474,7 @@ export function PlatformDemo() {
           ) : (
             <button
               onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-black rounded-2xl font-black text-sm hover:bg-zinc-200 transition-all shadow-xl"
+              className="app-accent-button flex items-center gap-2 px-6 py-3 rounded-2xl font-black text-sm transition-all shadow-xl"
             >
               Next
               <ArrowRight className="w-4 h-4" />
@@ -484,28 +484,28 @@ export function PlatformDemo() {
 
         {/* Quick Stats */}
         <div className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <div className="text-3xl font-black text-white mb-1">{steps.length}</div>
+          <div className="app-panel rounded-2xl p-6 border">
+            <div className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-1">{steps.length}</div>
             <div className="text-xs font-black text-zinc-400 uppercase tracking-wider">
               Features to Explore
             </div>
           </div>
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <div className="text-3xl font-black text-white mb-1">
+          <div className="app-panel rounded-2xl p-6 border">
+            <div className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-1">
               {isAdmin ? 'Admin' : 'Member'}
             </div>
             <div className="text-xs font-black text-zinc-400 uppercase tracking-wider">
               Your Role
             </div>
           </div>
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <div className="text-3xl font-black text-white mb-1">24/7</div>
+          <div className="app-panel rounded-2xl p-6 border">
+            <div className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-1">24/7</div>
             <div className="text-xs font-black text-zinc-400 uppercase tracking-wider">
               Platform Access
             </div>
           </div>
-          <div className="bg-zinc-900 rounded-2xl p-6 border border-zinc-800">
-            <div className="text-3xl font-black text-white mb-1">
+          <div className="app-panel rounded-2xl p-6 border">
+            <div className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-1">
               {currentStep + 1}/{steps.length}
             </div>
             <div className="text-xs font-black text-zinc-400 uppercase tracking-wider">
@@ -517,7 +517,7 @@ export function PlatformDemo() {
         {/* Footer Note */}
         <div className="mt-8 text-center">
           <p className="text-sm text-zinc-500 font-medium">
-            You can access this demo anytime from <span className="text-white font-bold">Settings → Platform Demo</span>
+            You can access this demo anytime from <span className="text-zinc-900 dark:text-zinc-100 font-bold">Settings → Platform Demo</span>
           </p>
         </div>
       </div>

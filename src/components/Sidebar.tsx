@@ -22,9 +22,9 @@ function NavTooltip({ children, label, show }: { children: React.ReactNode; labe
       {children}
       {show && hovered && (
         <div className="absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 pointer-events-none">
-          <div className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-xs font-bold whitespace-nowrap text-white shadow-2xl">
+          <div className="rounded-xl border border-white/10 bg-[hsl(var(--foreground)/0.96)] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-[hsl(var(--background))] shadow-2xl">
             {label}
-            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-zinc-900" />
+            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[hsl(var(--foreground)/0.96)]" />
           </div>
         </div>
       )}
@@ -129,11 +129,11 @@ export function Sidebar({
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-              className="absolute left-0 top-0 flex h-full w-72 flex-col border-r border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950"
+              className="app-shell-chrome absolute left-0 top-0 flex h-full w-72 flex-col border-r backdrop-blur-xl"
             >
               <button
                 onClick={() => onMobileOpenChange(false)}
-                className="absolute right-3 top-3.5 z-10 rounded-lg bg-zinc-100 dark:bg-zinc-800 p-1.5 text-zinc-500 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                className="absolute right-3 top-3.5 z-10 rounded-xl bg-[hsl(var(--muted)/0.92)] p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted))]"
                 aria-label="Close menu"
               >
                 <X className="w-4 h-4" />
@@ -153,8 +153,7 @@ export function Sidebar({
         animate={{ width: isCollapsed ? 'var(--app-sidebar-collapsed-width, 68px)' : 'var(--app-sidebar-width, 220px)' }}
         transition={{ duration: 0.25, ease: 'easeInOut' }}
         className={cn(
-          'relative hidden h-full md:flex md:flex-col bg-white dark:bg-zinc-950',
-          'border-r border-zinc-200 dark:border-zinc-800',
+          'app-shell-chrome relative hidden h-full border-r backdrop-blur-xl md:flex md:flex-col',
           'overflow-hidden shrink-0'
         )}
       >
@@ -179,7 +178,7 @@ function SidebarContent({
     <>
       {/* Logo / Brand */}
       <div className={cn(
-        'flex h-14 shrink-0 items-center border-b border-zinc-200 dark:border-zinc-800',
+        'app-shell-divider flex h-14 shrink-0 items-center border-b',
         isCollapsed ? 'justify-center px-4' : 'px-4 gap-2.5'
       )}>
         <div
@@ -230,7 +229,7 @@ function SidebarContent({
       </nav>
 
       {/* Footer */}
-      <div className="p-2 border-t border-zinc-200 dark:border-zinc-800 shrink-0 space-y-1">
+      <div className="app-shell-divider border-t p-2 shrink-0 space-y-1">
         {/* ⌘K hint */}
         <AnimatePresence>
           {!isCollapsed && (
@@ -238,7 +237,7 @@ function SidebarContent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800"
+              className="flex items-center justify-between rounded-xl border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.56)] px-2 py-1.5"
             >
               <span className="text-[10px] font-semibold text-zinc-400">Command palette</span>
               <kbd className="text-[9px] font-black text-zinc-400 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>

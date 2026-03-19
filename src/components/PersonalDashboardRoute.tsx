@@ -235,12 +235,12 @@ export function PersonalDashboard() {
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto">
       {/* Header with action buttons */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      <div className="app-hero-panel rounded-[2rem] border p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 mb-2">
+          <h1 className="app-hero-title text-4xl font-black mb-2">
             My Dashboard
           </h1>
-          <p className="text-zinc-500 font-medium">
+          <p className="app-hero-copy font-medium">
             Personal task overview and performance metrics
           </p>
         </div>

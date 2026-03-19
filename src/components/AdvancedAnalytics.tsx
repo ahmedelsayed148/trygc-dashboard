@@ -281,12 +281,12 @@ export function AdvancedAnalytics({ tasks, successLogs }: AdvancedAnalyticsProps
       </div>
 
       {/* ========== EXECUTIVE INSIGHT BANNER ========== */}
-      <div className="bg-gradient-to-r from-black via-zinc-900 to-black text-white p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.05),transparent_70%)]" />
+      <div className="app-hero-panel p-8 rounded-[2rem] shadow-2xl relative overflow-hidden border">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.05),transparent_70%)] dark:bg-[radial-gradient(circle_at_30%_50%,rgba(255,255,255,0.05),transparent_70%)]" />
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-4">
-            <Eye className="w-5 h-5 text-zinc-400" />
-            <h2 className="text-sm font-black uppercase tracking-widest text-zinc-400">Executive Insights</h2>
+            <Eye className="w-5 h-5 app-hero-kicker" />
+            <h2 className="app-hero-kicker text-sm font-black uppercase tracking-widest">Executive Insights</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <InsightCard
@@ -585,9 +585,9 @@ function InsightCard({ title, status, message }: { title: string; status: 'good'
     <div className={`p-5 rounded-2xl border ${colors[status]}`}>
       <div className="flex items-center gap-2 mb-2">
         <div className={`w-2 h-2 rounded-full ${dotColors[status]} animate-pulse`} />
-        <h4 className="text-xs font-black text-white/80 uppercase tracking-wider">{title}</h4>
+        <h4 className="text-xs font-black app-hero-kicker uppercase tracking-wider">{title}</h4>
       </div>
-      <p className="text-sm text-white/60 font-medium leading-relaxed">{message}</p>
+      <p className="text-sm app-hero-copy font-medium leading-relaxed">{message}</p>
     </div>
   );
 }

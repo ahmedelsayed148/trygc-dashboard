@@ -52,13 +52,13 @@ export function DataExport() {
   return (
     <div className="px-4 py-6 md:px-6 max-w-2xl mx-auto">
       <div className="bg-white dark:bg-zinc-950 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden">
-        <div className="px-8 py-6 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-4">
-          <div className="w-11 h-11 bg-zinc-900 dark:bg-zinc-100 rounded-2xl flex items-center justify-center">
-            <Download className="w-5 h-5 text-white dark:text-black" />
+        <div className="app-hero-panel px-8 py-6 border-b flex items-center gap-4">
+          <div className="w-11 h-11 app-hero-stat rounded-2xl flex items-center justify-center border">
+            <Download className="w-5 h-5 app-hero-title" />
           </div>
           <div>
-            <h1 className="text-xl font-black text-zinc-800 dark:text-zinc-100">Data Export</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Export all workspace data for backup or migration</p>
+            <h1 className="text-xl font-black app-hero-title">Data Export</h1>
+            <p className="text-sm app-hero-copy mt-0.5">Export all workspace data for backup or migration</p>
           </div>
         </div>
 
@@ -78,7 +78,7 @@ export function DataExport() {
           <button
             onClick={handleExport}
             disabled={exporting}
-            className="w-full py-3.5 bg-black dark:bg-white hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black rounded-2xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 text-sm"
+            className="w-full py-3.5 app-accent-button rounded-2xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2.5 text-sm"
           >
             {exporting ? (
               <><Loader2 className="w-4 h-4 animate-spin" />Exporting...</>

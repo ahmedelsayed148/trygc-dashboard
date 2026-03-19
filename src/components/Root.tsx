@@ -41,6 +41,16 @@ import { normalizeCoverageRecords, type CoverageRecord } from '../lib/coverageTy
 import { getCurrentNavItem } from '../lib/navigation';
 import { useLocation, useNavigate } from '../lib/routerCompat';
 import { getRouteComponent, getRouteRedirect } from '../routes';
+import {
+  WORKSPACE_STORAGE_KEYS,
+  getStandaloneTasksStorageKey,
+  mergeWorkspaceRecords,
+  mergeWorkspaceRecordsByIdentity,
+  persistWorkspaceSnapshot,
+  readStoredWorkspaceObject,
+  readStoredWorkspaceRecords,
+  writeStoredWorkspaceValue,
+} from '../lib/workspacePersistence';
 import type { User as AppUser } from '../types';
 
 type WorkspaceRecord = {
@@ -172,82 +182,6 @@ type AppContextValue = {
 // eslint-disable-next-line react-refresh/only-export-components
 export const AppContext = React.createContext<AppContextValue | null>(null);
 
-const CAMPAIGN_INTAKES_STORAGE_KEY = 'trygc-campaign-intakes';
-const ORGANIZED_UPDATES_STORAGE_KEY = 'trygc-organized-updates';
-const LINK_WIDGETS_STORAGE_KEY = 'trygc-link-widgets';
-const SHIFT_HANDOVERS_STORAGE_KEY = 'trygc-shift-handovers';
-const COVERAGE_RECORDS_STORAGE_KEY = 'trygc-coverage-records';
-const TASKS_STORAGE_KEY = 'trygc-tasks';
-const OPS_CAMPAIGNS_STORAGE_KEY = 'trygc-ops-campaigns';
-const TASK_NOTIFICATIONS_STORAGE_KEY = 'trygc-task-notifications';
-const SUCCESS_LOGS_STORAGE_KEY = 'trygc-success-logs';
-const MISTAKES_STORAGE_KEY = 'trygc-mistakes';
-const SIDEBAR_COLLAPSED_STORAGE_KEY = 'trygc-sidebar-collapsed';
-const COMMUNITY_WORKSPACE_STORAGE_KEY = 'trygc-community-workspace';
-const DEMO_COMPLETED_STORAGE_KEY = 'trygc-demo-completed';
-
-function readStoredWorkspaceRecords(key: string) {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const rawValue = window.localStorage.getItem(key);
-    if (!rawValue) {
-      return [];
-    }
-
-    const parsed = JSON.parse(rawValue);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (_error) {
-    return [];
-  }
-}
-
-function readStoredWorkspaceObject(key: string, fallback: unknown) {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const rawValue = window.localStorage.getItem(key);
-    if (!rawValue) return fallback;
-    return JSON.parse(rawValue);
-  } catch (_error) {
-    return fallback;
-  }
-}
-
-function writeStoredWorkspaceRecords(key: string, value: unknown) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (_error) {
-    // Ignore local storage write failures and keep the in-memory workspace active.
-  }
-}
-
-function mergeWorkspaceRecords<T extends { id: string; updatedAt?: string }>(primary: T[], secondary: T[]) {
-  const merged = new Map<string, T>();
-
-  [...secondary, ...primary].forEach((item) => {
-    const existing = merged.get(item.id);
-
-    if (!existing) {
-      merged.set(item.id, item);
-      return;
-    }
-
-    const existingTime = new Date(existing.updatedAt || 0).getTime();
-    const nextTime = new Date(item.updatedAt || 0).getTime();
-    merged.set(item.id, nextTime >= existingTime ? item : existing);
-  });
-
-  return [...merged.values()].sort(
-    (left, right) => new Date(right.updatedAt || 0).getTime() - new Date(left.updatedAt || 0).getTime(),
-  );
-}
-
 const LazyXlsxUploader = React.lazy(() =>
   import('./XlsxUploader').then((module) => ({ default: module.XlsxUploader })),
 );
@@ -278,21 +212,21 @@ export function Root() {
   const [teamMembers, setTeamMembers] = useState<TeamMemberRecord[]>([]);
   const [userFeatures, setUserFeatures] = useState<string[] | null>(null);
 
-  const [tasks, setTasks] = useState<TaskRecord[]>(() => readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[]);
-  const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>(() => readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[]);
-  const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>(() => readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[]);
-  const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[]);
+  const [tasks, setTasks] = useState<TaskRecord[]>(() => readStoredWorkspaceRecords<TaskRecord>(WORKSPACE_STORAGE_KEYS.tasks));
+  const [successLogs, setSuccessLogs] = useState<SuccessRecord[]>(() => readStoredWorkspaceRecords<SuccessRecord>(WORKSPACE_STORAGE_KEYS.successLogs));
+  const [taskNotifications, setTaskNotifications] = useState<NotificationRecord[]>(() => readStoredWorkspaceRecords<NotificationRecord>(WORKSPACE_STORAGE_KEYS.taskNotifications));
+  const [mistakes, setMistakes] = useState<MistakeRecord[]>(() => readStoredWorkspaceRecords<MistakeRecord>(WORKSPACE_STORAGE_KEYS.mistakes));
   const [tasksPerTeam, setTasksPerTeam] = useState<Record<string, WorkspaceRecord>>({});
-  const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>(() => normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY)));
+  const [opsCampaigns, setOpsCampaigns] = useState<OpsCampaign[]>(() => normalizeOpsCampaigns(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.opsCampaigns)));
   const [communityWorkspace, setCommunityWorkspace] = useState<CommunityWorkspace>(() => {
-    const stored = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
+    const stored = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
     return stored ? normalizeCommunityWorkspace(stored) : createEmptyCommunityWorkspace();
   });
-  const [campaignIntakes, setCampaignIntakes] = useState<CampaignIntakeRecord[]>(() => normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY)));
-  const [organizedUpdates, setOrganizedUpdates] = useState<OrganizedUpdateRecord[]>(() => normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY)));
-  const [linkWidgets, setLinkWidgets] = useState<LinkWidgetRecord[]>(() => normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY)));
-  const [shiftHandovers, setShiftHandovers] = useState<ShiftHandoverRecord[]>(() => normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY)));
-  const [coverageRecords, setCoverageRecords] = useState<CoverageRecord[]>(() => normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY)));
+  const [campaignIntakes, setCampaignIntakes] = useState<CampaignIntakeRecord[]>(() => normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.campaignIntakes)));
+  const [organizedUpdates, setOrganizedUpdates] = useState<OrganizedUpdateRecord[]>(() => normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.organizedUpdates)));
+  const [linkWidgets, setLinkWidgets] = useState<LinkWidgetRecord[]>(() => normalizeLinkWidgetRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.linkWidgets)));
+  const [shiftHandovers, setShiftHandovers] = useState<ShiftHandoverRecord[]>(() => normalizeShiftHandoverRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.shiftHandovers)));
+  const [coverageRecords, setCoverageRecords] = useState<CoverageRecord[]>(() => normalizeCoverageRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.coverageRecords)));
   const [demoCompleted, setDemoCompleted] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadedWorkspace, setHasLoadedWorkspace] = useState(false);
@@ -304,7 +238,7 @@ export function Root() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     if (typeof window === 'undefined') return false;
-    try { return window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY) === 'true'; } catch { return false; }
+    try { return window.localStorage.getItem(WORKSPACE_STORAGE_KEYS.sidebarCollapsed) === 'true'; } catch { return false; }
   });
   const [isXlsxUploaderOpen, setIsXlsxUploaderOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
@@ -314,6 +248,8 @@ export function Root() {
   const [lastPersistedRevision, setLastPersistedRevision] = useState(0);
 
   const hasInitialNavigated = useRef(false);
+  const refreshRequestIdRef = useRef(0);
+  const saveRequestIdRef = useRef(0);
   const workspaceRevisionRef = useRef(0);
   const communityWorkspaceRef = useRef<CommunityWorkspace>(createEmptyCommunityWorkspace());
   const workspaceSyncPayloadRef = useRef({
@@ -461,13 +397,13 @@ export function Root() {
   // This effect is a safety-net for first-load before the server responds.
   useEffect(() => {
     if (!userEmail || hasLoadedWorkspace) return;
-    const stored = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`);
+    const stored = readStoredWorkspaceRecords<StandaloneTaskRecord>(getStandaloneTasksStorageKey(userEmail));
     if (stored.length > 0) setStandaloneTasksState(stored);
   }, [userEmail, hasLoadedWorkspace]);
 
   useEffect(() => {
     if (!userEmail || !hasLoadedWorkspace) return;
-    writeStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`, standaloneTasks);
+    writeStoredWorkspaceValue(getStandaloneTasksStorageKey(userEmail), standaloneTasks);
   }, [standaloneTasks, userEmail, hasLoadedWorkspace]);
 
   const resetWorkspaceState = useCallback(() => {
@@ -485,7 +421,7 @@ export function Root() {
     setShiftHandovers([]);
     setCoverageRecords([]);
     setDemoCompleted(null);
-    try { window.localStorage.removeItem(DEMO_COMPLETED_STORAGE_KEY); } catch { /* ignore */ }
+    try { window.localStorage.removeItem(WORKSPACE_STORAGE_KEYS.demoCompleted); } catch { /* ignore */ }
     setIsLoading(true);
     setHasLoadedWorkspace(false);
     setFetchError(false);
@@ -495,6 +431,8 @@ export function Root() {
     setLastSyncError(null);
     setWorkspaceRevision(0);
     setLastPersistedRevision(0);
+    refreshRequestIdRef.current += 1;
+    saveRequestIdRef.current += 1;
   }, []);
 
   const applySession = useCallback((session: SessionLike | null) => {
@@ -573,14 +511,14 @@ export function Root() {
         setUserFeatures(data.features || null);
         const completed = data.demoCompleted === true;
         setDemoCompleted(completed);
-        try { window.localStorage.setItem(DEMO_COMPLETED_STORAGE_KEY, String(completed)); } catch { /* ignore */ }
+        try { window.localStorage.setItem(WORKSPACE_STORAGE_KEYS.demoCompleted, String(completed)); } catch { /* ignore */ }
         setConnectionState('online');
       } catch (error) {
         console.error('Error registering role:', error);
         setUserRole('member');
         // Restore from cache so a temporary API failure does not force a demo redirect
         try {
-          const cached = window.localStorage.getItem(DEMO_COMPLETED_STORAGE_KEY);
+          const cached = window.localStorage.getItem(WORKSPACE_STORAGE_KEYS.demoCompleted);
           if (cached !== null) {
             setDemoCompleted(cached === 'true');
           }
@@ -599,6 +537,9 @@ export function Root() {
       return;
     }
 
+    const requestId = refreshRequestIdRef.current + 1;
+    refreshRequestIdRef.current = requestId;
+
     setIsLoading(true);
     setFetchError(false);
     setConnectionState('loading');
@@ -613,60 +554,37 @@ export function Root() {
         if (nextData && Object.keys(nextData).length > 0) {
           nextCommunityWorkspace = normalizeCommunityWorkspace(nextData);
         } else {
-          const storedCommunityWorkspace = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
+          const storedCommunityWorkspace = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
           if (storedCommunityWorkspace) {
             nextCommunityWorkspace = normalizeCommunityWorkspace(storedCommunityWorkspace);
           }
         }
       } catch (error) {
         console.error('Error fetching community workspace:', error);
-        const storedCommunityWorkspace = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
+        const storedCommunityWorkspace = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
         if (storedCommunityWorkspace) {
           nextCommunityWorkspace = normalizeCommunityWorkspace(storedCommunityWorkspace);
         }
       }
 
-      const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY));
-      const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY));
-      const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
-      const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
-      const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
-      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[];
-      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
-      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[];
-      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[];
-      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[];
-      const storedStandaloneTasks = readStoredWorkspaceRecords(`trygc-standalone-tasks:${userEmail}`) as StandaloneTaskRecord[];
-
-      // Merge by id: prefer the entry with the newer updatedAt timestamp; local-only items are always kept
-      const mergeById = <T extends { id?: string | number; updatedAt?: string }>(primary: T[], secondary: T[]) => {
-        const primaryMap = new Map<string, T>(primary.map((x) => [String(x.id), x]));
-        const result = [...primary];
-        for (const item of secondary) {
-          const key = String(item.id);
-          const existing = primaryMap.get(key);
-          if (!existing) {
-            // Local-only item not on server yet — keep it
-            result.push(item);
-          } else {
-            const existingTime = new Date(existing.updatedAt || 0).getTime();
-            const itemTime = new Date(item.updatedAt || 0).getTime();
-            if (itemTime > existingTime) {
-              // Local version is newer — replace the server version in-place
-              const idx = result.findIndex((x) => String(x.id) === key);
-              if (idx !== -1) result[idx] = item;
-            }
-          }
-        }
-        return result;
-      };
+      const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.campaignIntakes));
+      const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.organizedUpdates));
+      const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.linkWidgets));
+      const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.shiftHandovers));
+      const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.coverageRecords));
+      const storedTasks = readStoredWorkspaceRecords<TaskRecord>(WORKSPACE_STORAGE_KEYS.tasks);
+      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.opsCampaigns));
+      const storedTaskNotifications = readStoredWorkspaceRecords<NotificationRecord>(WORKSPACE_STORAGE_KEYS.taskNotifications);
+      const storedSuccessLogs = readStoredWorkspaceRecords<SuccessRecord>(WORKSPACE_STORAGE_KEYS.successLogs);
+      const storedMistakes = readStoredWorkspaceRecords<MistakeRecord>(WORKSPACE_STORAGE_KEYS.mistakes);
+      const storedStandaloneTasks = readStoredWorkspaceRecords<StandaloneTaskRecord>(getStandaloneTasksStorageKey(userEmail));
 
       const nextWorkspace = {
-        tasks: mergeById<TaskRecord>((data.tasks || []) as TaskRecord[], storedTasks),
-        successLogs: mergeById<SuccessRecord>((data.successLogs || []) as SuccessRecord[], storedSuccessLogs),
-        taskNotifications: mergeById<NotificationRecord>((data.taskNotifications || []) as NotificationRecord[], storedTaskNotifications),
-        mistakes: mergeById<MistakeRecord>((data.mistakes || []) as MistakeRecord[], storedMistakes),
-        tasksPerTeam: data.tasksPerTeam || {},
+        tasks: mergeWorkspaceRecordsByIdentity<TaskRecord>((data.tasks || []) as TaskRecord[], storedTasks),
+        successLogs: mergeWorkspaceRecordsByIdentity<SuccessRecord>((data.successLogs || []) as SuccessRecord[], storedSuccessLogs),
+        taskNotifications: mergeWorkspaceRecordsByIdentity<NotificationRecord>((data.taskNotifications || []) as NotificationRecord[], storedTaskNotifications),
+        mistakes: mergeWorkspaceRecordsByIdentity<MistakeRecord>((data.mistakes || []) as MistakeRecord[], storedMistakes),
+        tasksPerTeam: (data.tasksPerTeam || {}) as Record<string, WorkspaceRecord>,
         opsCampaigns: mergeWorkspaceRecords(
           normalizeOpsCampaigns(data.opsCampaigns || []),
           storedOpsCampaigns,
@@ -691,8 +609,12 @@ export function Root() {
           normalizeCoverageRecords(data.coverageRecords || []),
           storedCoverageRecords,
         ),
-        standaloneTasks: mergeById<StandaloneTaskRecord>((data.standaloneTasks || []) as StandaloneTaskRecord[], storedStandaloneTasks),
+        standaloneTasks: mergeWorkspaceRecordsByIdentity<StandaloneTaskRecord>((data.standaloneTasks || []) as StandaloneTaskRecord[], storedStandaloneTasks),
       };
+
+      if (requestId !== refreshRequestIdRef.current) {
+        return;
+      }
 
       setTasks(nextWorkspace.tasks);
       setSuccessLogs(nextWorkspace.successLogs);
@@ -717,18 +639,22 @@ export function Root() {
     } catch (error) {
       console.error('Error fetching workspace data:', error);
 
+      if (requestId !== refreshRequestIdRef.current) {
+        return;
+      }
+
       // Load from localStorage as fallback so data doesn't disappear when server is unreachable
-      const storedSuccessLogs = readStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY) as SuccessRecord[];
-      const storedMistakes = readStoredWorkspaceRecords(MISTAKES_STORAGE_KEY) as MistakeRecord[];
-      const storedTasks = readStoredWorkspaceRecords(TASKS_STORAGE_KEY) as TaskRecord[];
-      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY));
-      const storedTaskNotifications = readStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY) as NotificationRecord[];
-      const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY));
-      const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY));
-      const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY));
-      const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY));
-      const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY));
-      const storedCommunityWorkspace = readStoredWorkspaceObject(COMMUNITY_WORKSPACE_STORAGE_KEY, null);
+      const storedSuccessLogs = readStoredWorkspaceRecords<SuccessRecord>(WORKSPACE_STORAGE_KEYS.successLogs);
+      const storedMistakes = readStoredWorkspaceRecords<MistakeRecord>(WORKSPACE_STORAGE_KEYS.mistakes);
+      const storedTasks = readStoredWorkspaceRecords<TaskRecord>(WORKSPACE_STORAGE_KEYS.tasks);
+      const storedOpsCampaigns = normalizeOpsCampaigns(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.opsCampaigns));
+      const storedTaskNotifications = readStoredWorkspaceRecords<NotificationRecord>(WORKSPACE_STORAGE_KEYS.taskNotifications);
+      const storedCampaignIntakes = normalizeCampaignIntakeRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.campaignIntakes));
+      const storedOrganizedUpdates = normalizeOrganizedUpdateRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.organizedUpdates));
+      const storedLinkWidgets = normalizeLinkWidgetRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.linkWidgets));
+      const storedShiftHandovers = normalizeShiftHandoverRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.shiftHandovers));
+      const storedCoverageRecords = normalizeCoverageRecords(readStoredWorkspaceRecords(WORKSPACE_STORAGE_KEYS.coverageRecords));
+      const storedCommunityWorkspace = readStoredWorkspaceObject(WORKSPACE_STORAGE_KEYS.communityWorkspace, null);
 
       if (storedTasks.length > 0) setTasks(storedTasks);
       if (storedTaskNotifications.length > 0) setTaskNotifications(storedTaskNotifications);
@@ -748,7 +674,9 @@ export function Root() {
       setLastSyncError(error instanceof Error ? error.message : 'Failed to load workspace data');
       setConnectionState('error');
     } finally {
-      setIsLoading(false);
+      if (requestId === refreshRequestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [isAuthenticated, userEmail]);
 
@@ -807,8 +735,12 @@ export function Root() {
 
     setSaveState('saving');
     setConnectionState('syncing');
+    const revisionAtSave = workspaceRevision;
 
     const timer = window.setTimeout(async () => {
+      const saveRequestId = saveRequestIdRef.current + 1;
+      saveRequestIdRef.current = saveRequestId;
+
       try {
         await apiRequest('workspace', {
           method: 'POST',
@@ -820,13 +752,20 @@ export function Root() {
           body: communityWorkspaceRef.current,
         });
 
+        if (saveRequestId !== saveRequestIdRef.current) {
+          return;
+        }
+
         setLastSaved(new Date());
         setSaveState('saved');
         setConnectionState('online');
         setLastSyncError(null);
-        setLastPersistedRevision(workspaceRevision);
+        setLastPersistedRevision(revisionAtSave);
       } catch (error) {
         console.error('Error saving workspace:', error);
+        if (saveRequestId !== saveRequestIdRef.current) {
+          return;
+        }
         setSaveState('error');
         setConnectionState('error');
         setLastSyncError(error instanceof Error ? error.message : 'Failed to sync workspace changes');
@@ -866,92 +805,42 @@ export function Root() {
       return;
     }
 
-    writeStoredWorkspaceRecords(TASKS_STORAGE_KEY, tasks);
-  }, [tasks, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(TASK_NOTIFICATIONS_STORAGE_KEY, taskNotifications);
-  }, [taskNotifications, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(OPS_CAMPAIGNS_STORAGE_KEY, opsCampaigns);
-  }, [opsCampaigns, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(CAMPAIGN_INTAKES_STORAGE_KEY, campaignIntakes);
-  }, [campaignIntakes, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(ORGANIZED_UPDATES_STORAGE_KEY, organizedUpdates);
-  }, [organizedUpdates, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(LINK_WIDGETS_STORAGE_KEY, linkWidgets);
-  }, [linkWidgets, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(SHIFT_HANDOVERS_STORAGE_KEY, shiftHandovers);
-  }, [shiftHandovers, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(COVERAGE_RECORDS_STORAGE_KEY, coverageRecords);
-  }, [coverageRecords, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(SUCCESS_LOGS_STORAGE_KEY, successLogs);
-  }, [successLogs, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(MISTAKES_STORAGE_KEY, mistakes);
-  }, [mistakes, hasLoadedWorkspace, isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated || !hasLoadedWorkspace) {
-      return;
-    }
-
-    writeStoredWorkspaceRecords(COMMUNITY_WORKSPACE_STORAGE_KEY, communityWorkspace);
-  }, [communityWorkspace, hasLoadedWorkspace, isAuthenticated]);
+    persistWorkspaceSnapshot({
+      tasks,
+      taskNotifications,
+      opsCampaigns,
+      campaignIntakes,
+      organizedUpdates,
+      linkWidgets,
+      shiftHandovers,
+      coverageRecords,
+      successLogs,
+      mistakes,
+      communityWorkspace,
+      standaloneTasks,
+      userEmail,
+    });
+  }, [
+    campaignIntakes,
+    communityWorkspace,
+    coverageRecords,
+    hasLoadedWorkspace,
+    isAuthenticated,
+    linkWidgets,
+    mistakes,
+    opsCampaigns,
+    organizedUpdates,
+    shiftHandovers,
+    standaloneTasks,
+    successLogs,
+    taskNotifications,
+    tasks,
+    userEmail,
+  ]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    try { window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, String(isSidebarCollapsed)); } catch { /* ignore */ }
+    try { window.localStorage.setItem(WORKSPACE_STORAGE_KEYS.sidebarCollapsed, String(isSidebarCollapsed)); } catch { /* ignore */ }
   }, [isSidebarCollapsed]);
 
   // Auto-reset "Saved" badge back to idle after 3 seconds so the status bar stays clean

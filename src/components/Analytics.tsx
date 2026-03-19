@@ -38,9 +38,10 @@ export function Analytics() {
 
   return (
     <div className="px-4 py-6 md:px-6 space-y-6 max-w-screen-2xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-100 mb-1">Team Analytics</h1>
-        <p className="text-sm text-zinc-500 font-medium">Comprehensive performance insights and metrics</p>
+      <div className="app-hero-panel rounded-[2rem] border p-6">
+        <p className="app-hero-kicker text-xs font-black uppercase tracking-[0.24em]">Analytics Center</p>
+        <h1 className="app-hero-title mt-2 text-3xl font-black mb-1">Team Analytics</h1>
+        <p className="app-hero-copy text-sm font-medium">Comprehensive performance insights and metrics</p>
       </div>
       <DateRangeFilter label="Analytics Date Range" value={dateRange} onChange={setDateRange} />
       <AdvancedAnalytics tasks={deferredTasks} successLogs={deferredSuccessLogs} />

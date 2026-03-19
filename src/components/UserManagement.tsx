@@ -21,7 +21,6 @@ import {
   LayoutDashboard,
   Languages,
   ClipboardList,
-  LayoutGrid,
   Link2,
   BarChart3,
   Eye,
@@ -64,13 +63,10 @@ const ALL_FEATURES: FeatureDefinition[] = [
   { id: 'widgets', label: 'Widgets', icon: Link2, description: 'Custom link widgets for important URLs' },
   { id: 'tasks', label: 'All Tasks', icon: ClipboardList, description: 'View and manage all tasks', adminOnly: true },
   { id: 'campaigns', label: 'Campaigns', icon: Target, description: '6-phase campaign lifecycle management' },
-  { id: 'campaign-intake', label: 'Campaign Intake', icon: Target, description: 'Add upcoming or ongoing campaigns', adminOnly: true },
-  { id: 'functions', label: 'Function Kanban', icon: LayoutGrid, description: 'Kanban board by function', adminOnly: true },
   { id: 'analytics', label: 'Team Analytics', icon: BarChart3, description: 'Analytics and charts', adminOnly: true },
   { id: 'member-views', label: 'Member Views', icon: Eye, description: 'View individual member data', adminOnly: true },
   { id: 'successes', label: 'Updates', icon: Award, description: 'Success tracking feed' },
   { id: 'update-organizer', label: 'Update Organizer', icon: Languages, description: 'Organize messy inputs and translate them to English' },
-  { id: 'handover', label: 'Handover', icon: MessageCircle, description: 'Detailed shift handovers for the next shift and shared team visibility' },
   { id: 'reports', label: 'Reports', icon: FileText, description: 'Generate detailed reports', adminOnly: true },
   { id: 'archive', label: 'Archive', icon: Archive, description: 'Access archived data', adminOnly: true },
   { id: 'settings', label: 'Settings', icon: Settings, description: 'Platform settings' },
@@ -83,7 +79,7 @@ const ALL_FEATURES: FeatureDefinition[] = [
 const mergeRequiredFeatures = (featureIds: string[]) => Array.from(new Set([...featureIds, ...ALWAYS_AVAILABLE_FEATURES]));
 
 const DEFAULT_ADMIN_FEATURES = mergeRequiredFeatures(ALL_FEATURES.map(f => f.id));
-const DEFAULT_MEMBER_FEATURES = mergeRequiredFeatures(['personal', 'community-team', 'coverage', 'widgets', 'campaigns', 'mistakes', 'update-organizer', 'handover', 'successes', 'settings']);
+const DEFAULT_MEMBER_FEATURES = mergeRequiredFeatures(['personal', 'community-team', 'coverage', 'widgets', 'campaigns', 'mistakes', 'update-organizer', 'successes', 'settings']);
 
 export function UserManagement() {
   const ctx = useContext(AppContext);

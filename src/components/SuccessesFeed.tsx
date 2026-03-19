@@ -81,15 +81,15 @@ export function SuccessesFeed() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-[var(--app-card-radius)] bg-zinc-900 dark:bg-zinc-950 border border-zinc-800 p-6">
+      <div className="app-hero-panel relative overflow-hidden rounded-[var(--app-card-radius)] border p-6">
         <div className="pointer-events-none absolute inset-0 opacity-[0.04]"
           style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }} />
         <div className="relative flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center">
-            <Trophy className="w-6 h-6 text-white" />
+          <div className="w-12 h-12 rounded-2xl app-hero-stat border flex items-center justify-center">
+            <Trophy className="w-6 h-6 app-hero-title" />
           </div>
           <div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Updates Feed</h1>
+            <h1 className="text-2xl font-black app-hero-title tracking-tight">Updates Feed</h1>
             <p className="text-sm text-zinc-400 mt-0.5">{successLogs.length} total · {uniqueAgents} contributors · {grouped.length} campaign{grouped.length !== 1 ? 's' : ''}</p>
           </div>
         </div>
@@ -100,12 +100,12 @@ export function SuccessesFeed() {
               { icon: TrendingUp, label: 'Contributors', value: uniqueAgents },
               { icon: Target, label: 'Campaigns', value: grouped.length },
             ].map(({ icon: Icon, label, value }) => (
-              <div key={label} className="rounded-xl bg-white/5 border border-white/10 px-3 py-2.5">
+              <div key={label} className="rounded-xl app-hero-stat border px-3 py-2.5">
                 <div className="flex items-center gap-1.5 mb-1">
-                  <Icon className="w-3.5 h-3.5 text-zinc-400" />
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">{label}</span>
+                  <Icon className="w-3.5 h-3.5 app-hero-kicker" />
+                  <span className="text-[10px] font-bold uppercase tracking-wider app-hero-kicker">{label}</span>
                 </div>
-                <div className="text-xl font-black text-white">{value}</div>
+                <div className="text-xl font-black app-hero-title">{value}</div>
               </div>
             ))}
           </div>

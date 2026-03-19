@@ -376,8 +376,8 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-7 py-5 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-zinc-900 dark:bg-zinc-100 flex items-center justify-center shadow-lg">
-                <FileSpreadsheet className="w-5 h-5 text-white dark:text-black" />
+              <div className="w-10 h-10 rounded-2xl app-accent-button flex items-center justify-center shadow-lg">
+                <FileSpreadsheet className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-100">Bulk Upload Campaigns</h2>
@@ -390,7 +390,7 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
                 {(['upload', 'preview', 'done'] as Step[]).map((s, i) => (
                   <div key={s} className="contents">
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
-                      step === s ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black'
+                      step === s ? 'app-accent-button'
                       : (['upload', 'preview', 'done'].indexOf(step) > i) ? 'bg-zinc-400 dark:bg-zinc-600 text-white'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
                     }`}>
@@ -510,7 +510,7 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
                       <span className="text-sm font-black text-zinc-700 dark:text-zinc-300 truncate max-w-[200px]">{fileName}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-1 bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black rounded-full text-[10px] font-black">
+                      <span className="px-2.5 py-1 app-accent-button rounded-full text-[10px] font-black">
                         {rows.length} rows
                       </span>
                       <span className="px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full text-[10px] font-black">
@@ -580,9 +580,9 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
                   initial={{ scale: 0.5, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   transition={{ type: 'spring', stiffness: 250, damping: 20 }}
-                  className="w-20 h-20 bg-zinc-900 dark:bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl"
+                  className="w-20 h-20 app-accent-button rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl"
                 >
-                  <CheckCircle2 className="w-10 h-10 text-white dark:text-black" />
+                  <CheckCircle2 className="w-10 h-10" />
                 </motion.div>
                 <h3 className="text-2xl font-black text-zinc-900 dark:text-zinc-100 mb-2">
                   {importedCount} Campaign{importedCount > 1 ? 's' : ''} Imported!
@@ -621,7 +621,7 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
                   <button
                     onClick={handleImport}
                     disabled={validRows.length === 0 || importing}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black rounded-xl font-black text-sm transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-2.5 app-accent-button rounded-xl font-black text-sm transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {importing ? (
                       <><RefreshCw className="w-4 h-4 animate-spin" /> Importing...</>
@@ -641,7 +641,7 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
                 </button>
                 <button
                   onClick={() => { reset(); onClose(); }}
-                  className="px-6 py-2.5 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-black rounded-xl font-black text-sm transition-all shadow-lg"
+                  className="px-6 py-2.5 app-accent-button rounded-xl font-black text-sm transition-all shadow-lg"
                 >
                   Done
                 </button>

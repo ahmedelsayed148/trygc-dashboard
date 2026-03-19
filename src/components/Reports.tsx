@@ -281,17 +281,17 @@ export function Reports() {
       <motion.div
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+        className="app-hero-panel rounded-[2rem] border p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
       >
         <div>
-          <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100">Reports</h1>
-          <p className="text-zinc-500 font-medium mt-1">
+          <h1 className="app-hero-title text-4xl font-black">Reports</h1>
+          <p className="app-hero-copy font-medium mt-1">
             Live analytics · {filteredTasks.length.toLocaleString()} tasks · {successLogs.length} successes
           </p>
         </div>
         <button
           onClick={() => exportCSV('overview')}
-          className="flex items-center gap-2 px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-2xl font-bold text-sm hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg"
+          className="app-accent-button flex items-center gap-2 px-5 py-2.5 rounded-2xl font-bold text-sm transition-all shadow-lg"
         >
           <Download className="w-4 h-4" />
           Export CSV

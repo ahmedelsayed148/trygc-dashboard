@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useDeferredValue, useEffect, useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -266,14 +266,31 @@ function exportPDF(
 }
 
 // ── Shared UI helpers ──────────────────────────────────────────────────────────
-function ChartTooltip({ active, payload }: any) {
+type ChartTooltipDatum = {
+  fullName?: string;
+  name?: string;
+  label?: string;
+  brand?: string;
+  platform?: string;
+};
+
+type ChartTooltipEntry = {
+  name: string;
+  value: number | string;
+  unit?: string;
+  fill?: string;
+  color?: string;
+  payload?: ChartTooltipDatum;
+};
+
+function ChartTooltip({ active, payload }: { active?: boolean; payload?: ChartTooltipEntry[] }) {
   if (!active || !payload?.length) return null;
   const d = payload[0]?.payload;
   return (
     <div className="rounded-[var(--app-radius)] border border-border bg-card p-3 shadow-xl text-xs space-y-1.5 max-w-[240px]">
       <p className="font-bold text-foreground leading-snug">{d?.fullName || d?.name || d?.label || d?.brand || d?.platform}</p>
       <div className="space-y-1 pt-0.5">
-        {payload.map((p: any) => (
+        {payload.map((p) => (
           <div key={p.name} className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 text-muted-foreground">
               <span className="w-2 h-2 rounded-sm inline-block shrink-0" style={{ background: p.fill || p.color }} />
@@ -334,6 +351,16 @@ function FunnelViz({ stages }: { stages: { label: string; value: number; sub: st
 type SortKey = "name" | "brand" | "platform" | "list" | "confirmations" | "confPct" | "target" | "visited" | "visitPct" | "coverage" | "covPct" | "gap" | "velocity";
 type StatusFilter = "all" | "on-track" | "progress" | "behind";
 type DateMode = "all" | "active" | "ending-soon" | "ended";
+type DerivedCampaignRow = CampaignRow & {
+  brand: string;
+  platform: string;
+  confPct: number;
+  visitPct: number;
+  covPct: number;
+  gap: number;
+  velocity: number;
+  status: CovStatus;
+};
 
 // ── Component ──────────────────────────────────────────────────────────────────
 export function CampaignOverview() {
@@ -358,6 +385,7 @@ export function CampaignOverview() {
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [resetConfirm, setResetConfirm] = useState(false);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const deferredSearch = useDeferredValue(search.trim().toLowerCase());
 
   useEffect(() => {
     const reload = () => setCampaigns(loadCampaigns());
@@ -370,54 +398,75 @@ export function CampaignOverview() {
     };
   }, []);
 
-  const brands = useMemo(() => ["all", ...Array.from(new Set(campaigns.map(c => extractBrand(c.name)))).sort()], [campaigns]);
-  const countries = useMemo(() => ["all", ...Array.from(new Set(campaigns.map(c => c.country))).sort()], [campaigns]);
-  const types = useMemo(() => ["all", ...Array.from(new Set(campaigns.map(c => c.type))).sort()], [campaigns]);
-  const platforms = useMemo(() => ["all", ...Array.from(new Set(campaigns.map(c => extractPlatform(c.name)))).sort()], [campaigns]);
-  const months = useMemo(() => ["all", ...Array.from(new Set(campaigns.map(c => c.startDate.slice(0, 7)))).sort().reverse()], [campaigns]);
+  const derivedCampaigns = useMemo<DerivedCampaignRow[]>(
+    () =>
+      campaigns.map((campaign) => {
+        const brand = extractBrand(campaign.name);
+        const platform = extractPlatform(campaign.name);
+        const confPct = pct(campaign.confirmations, campaign.list);
+        const visitPct = pct(campaign.visited, campaign.target);
+        const covPct = pct(campaign.coverage, campaign.target);
+        const gap = Math.max(0, campaign.target - campaign.coverage);
+        const velocity = campaign.coverage / daysActive(campaign.startDate);
+        return {
+          ...campaign,
+          brand,
+          platform,
+          confPct,
+          visitPct,
+          covPct,
+          gap,
+          velocity,
+          status: statusOf(campaign.coverage, campaign.target),
+        };
+      }),
+    [campaigns],
+  );
+
+  const brands = useMemo(() => ["all", ...Array.from(new Set(derivedCampaigns.map(c => c.brand))).sort()], [derivedCampaigns]);
+  const countries = useMemo(() => ["all", ...Array.from(new Set(derivedCampaigns.map(c => c.country))).sort()], [derivedCampaigns]);
+  const types = useMemo(() => ["all", ...Array.from(new Set(derivedCampaigns.map(c => c.type))).sort()], [derivedCampaigns]);
+  const platforms = useMemo(() => ["all", ...Array.from(new Set(derivedCampaigns.map(c => c.platform))).sort()], [derivedCampaigns]);
+  const months = useMemo(() => ["all", ...Array.from(new Set(derivedCampaigns.map(c => c.startDate.slice(0, 7)))).sort().reverse()], [derivedCampaigns]);
 
   const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    const rows = campaigns.filter(c => {
-      const brand = extractBrand(c.name);
-      const platform = extractPlatform(c.name);
-      const covP = pct(c.coverage, c.target);
-      if (brandFilter !== "all" && brand !== brandFilter) return false;
+    const q = deferredSearch;
+    const rows = derivedCampaigns.filter(c => {
+      if (brandFilter !== "all" && c.brand !== brandFilter) return false;
       if (countryFilter !== "all" && c.country !== countryFilter) return false;
       if (typeFilter !== "all" && c.type !== typeFilter) return false;
-      if (platformFilter !== "all" && platform !== platformFilter) return false;
-      if (statusFilter !== "all" && statusOf(c.coverage, c.target) !== statusFilter) return false;
+      if (platformFilter !== "all" && c.platform !== platformFilter) return false;
+      if (statusFilter !== "all" && c.status !== statusFilter) return false;
       if (monthFilter !== "all" && !c.startDate.startsWith(monthFilter)) return false;
       if (dateFrom && c.startDate < dateFrom) return false;
       if (dateTo && c.endDate > dateTo) return false;
       if (dateMode === "active" && !(c.startDate <= TODAY && c.endDate >= TODAY)) return false;
       if (dateMode === "ending-soon") { const d = daysUntil(c.endDate); if (d < 0 || d > 7) return false; }
       if (dateMode === "ended" && c.endDate >= TODAY) return false;
-      if (covMin !== "" && covP < Number(covMin)) return false;
-      if (covMax !== "" && covP > Number(covMax)) return false;
+      if (covMin !== "" && c.covPct < Number(covMin)) return false;
+      if (covMax !== "" && c.covPct > Number(covMax)) return false;
       if (hasConf === "yes" && c.confirmations === 0) return false;
       if (hasConf === "no" && c.confirmations > 0) return false;
-      if (q && !c.name.toLowerCase().includes(q) && !brand.toLowerCase().includes(q) && !c.country.toLowerCase().includes(q) && !c.type.toLowerCase().includes(q)) return false;
+      if (q && !c.name.toLowerCase().includes(q) && !c.brand.toLowerCase().includes(q) && !c.country.toLowerCase().includes(q) && !c.type.toLowerCase().includes(q)) return false;
       return true;
     });
     return [...rows].sort((a, b) => {
       if (sortKey === "name") return sortDir === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name);
-      if (sortKey === "brand") { const ba = extractBrand(a.name), bb = extractBrand(b.name); return sortDir === "asc" ? ba.localeCompare(bb) : bb.localeCompare(ba); }
-      if (sortKey === "platform") { const pa = extractPlatform(a.name), pb = extractPlatform(b.name); return sortDir === "asc" ? pa.localeCompare(pb) : pb.localeCompare(pa); }
-      const val = (r: CampaignRow): number => {
-        const da = daysActive(r.startDate);
+      if (sortKey === "brand") return sortDir === "asc" ? a.brand.localeCompare(b.brand) : b.brand.localeCompare(a.brand);
+      if (sortKey === "platform") return sortDir === "asc" ? a.platform.localeCompare(b.platform) : b.platform.localeCompare(a.platform);
+      const val = (r: DerivedCampaignRow): number => {
         switch (sortKey) {
-          case "confPct": return pct(r.confirmations, r.list);
-          case "visitPct": return pct(r.visited, r.target);
-          case "covPct": return pct(r.coverage, r.target);
-          case "gap": return Math.max(0, r.target - r.coverage);
-          case "velocity": return r.coverage / da;
+          case "confPct": return r.confPct;
+          case "visitPct": return r.visitPct;
+          case "covPct": return r.covPct;
+          case "gap": return r.gap;
+          case "velocity": return r.velocity;
           default: return (r[sortKey as keyof CampaignRow] as number) || 0;
         }
       };
       return sortDir === "asc" ? val(a) - val(b) : val(b) - val(a);
     });
-  }, [campaigns, search, brandFilter, countryFilter, typeFilter, platformFilter, statusFilter, dateMode, dateFrom, dateTo, monthFilter, covMin, covMax, hasConf, sortKey, sortDir]);
+  }, [brandFilter, countryFilter, typeFilter, platformFilter, statusFilter, dateMode, dateFrom, dateTo, monthFilter, covMin, covMax, hasConf, sortKey, sortDir, deferredSearch, derivedCampaigns]);
 
   const totals = useMemo(() => ({
     list: filtered.reduce((s, c) => s + c.list, 0),
@@ -441,15 +490,15 @@ export function CampaignOverview() {
 
   const chartData = useMemo(() =>
     [...filtered]
-      .sort((a, b) => pct(b.coverage, b.target) - pct(a.coverage, a.target))
+      .sort((a, b) => b.covPct - a.covPct)
       .slice(0, 20)
       .map(c => ({
-        name: extractBrand(c.name).slice(0, 14),
+        name: c.brand.slice(0, 14),
         fullName: c.name,
-        "Conf%": pct(c.confirmations, c.list),
-        "Visit%": pct(c.visited, c.target),
-        "Cov%": pct(c.coverage, c.target),
-        covPct: pct(c.coverage, c.target),
+        "Conf%": c.confPct,
+        "Visit%": c.visitPct,
+        "Cov%": c.covPct,
+        covPct: c.covPct,
       })),
     [filtered]);
 
@@ -463,9 +512,8 @@ export function CampaignOverview() {
   const brandData = useMemo(() => {
     const map = new Map<string, { campaigns: number; cov: number; target: number; conf: number; list: number; visited: number }>();
     filtered.forEach(c => {
-      const b = extractBrand(c.name);
-      const e = map.get(b) || { campaigns: 0, cov: 0, target: 0, conf: 0, list: 0, visited: 0 };
-      map.set(b, { campaigns: e.campaigns + 1, cov: e.cov + c.coverage, target: e.target + c.target, conf: e.conf + c.confirmations, list: e.list + c.list, visited: e.visited + c.visited });
+      const e = map.get(c.brand) || { campaigns: 0, cov: 0, target: 0, conf: 0, list: 0, visited: 0 };
+      map.set(c.brand, { campaigns: e.campaigns + 1, cov: e.cov + c.coverage, target: e.target + c.target, conf: e.conf + c.confirmations, list: e.list + c.list, visited: e.visited + c.visited });
     });
     return Array.from(map.entries())
       .map(([brand, d]) => ({ brand, campaigns: d.campaigns, covPct: pct(d.cov, d.target), confPct: pct(d.conf, d.list), visitPct: pct(d.visited, d.target), coverage: d.cov, target: d.target }))
@@ -477,9 +525,8 @@ export function CampaignOverview() {
   const platformData = useMemo(() => {
     const map = new Map<string, { campaigns: number; cov: number; target: number; conf: number; list: number; visited: number }>();
     filtered.forEach(c => {
-      const p = extractPlatform(c.name);
-      const e = map.get(p) || { campaigns: 0, cov: 0, target: 0, conf: 0, list: 0, visited: 0 };
-      map.set(p, { campaigns: e.campaigns + 1, cov: e.cov + c.coverage, target: e.target + c.target, conf: e.conf + c.confirmations, list: e.list + c.list, visited: e.visited + c.visited });
+      const e = map.get(c.platform) || { campaigns: 0, cov: 0, target: 0, conf: 0, list: 0, visited: 0 };
+      map.set(c.platform, { campaigns: e.campaigns + 1, cov: e.cov + c.coverage, target: e.target + c.target, conf: e.conf + c.confirmations, list: e.list + c.list, visited: e.visited + c.visited });
     });
     return Array.from(map.entries())
       .map(([platform, d]) => ({ platform, campaigns: d.campaigns, covPct: pct(d.cov, d.target), confPct: pct(d.conf, d.list), visitPct: pct(d.visited, d.target) }))

@@ -27,7 +27,6 @@ const routeComponents: Record<string, RouteComponent> = {
   "/data-export": lazyRoute(() => import("./components/DataExport"), "DataExport"),
   "/data-import": lazyRoute(() => import("./components/DataImport"), "DataImport"),
   "/demo": lazyRoute(() => import("./components/PlatformDemo"), "PlatformDemo"),
-  "/functions": lazyRoute(() => import("./components/FunctionKanban"), "FunctionKanban"),
   "/member-views": lazyRoute(() => import("./components/MemberViews"), "MemberViews"),
   "/mistakes": lazyRoute(() => import("./components/MistakeLogger"), "MistakeLogger"),
   "/personal": lazyRoute(() => import("./components/PersonalDashboardRoute"), "PersonalDashboard"),
@@ -47,6 +46,7 @@ const routeComponents: Record<string, RouteComponent> = {
 
 const routeRedirects: Record<string, string> = {
   "/ops": "/campaigns",
+  "/functions": "/tasks",
 };
 
 function normalizePathname(pathname: string | null | undefined) {

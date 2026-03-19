@@ -433,14 +433,14 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden transition-colors border border-zinc-200 dark:border-zinc-800">
         {/* Header */}
-        <div className="p-6 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between bg-gradient-to-r from-zinc-50 to-zinc-100 dark:from-zinc-900 dark:to-zinc-950">
+        <div className="app-hero-panel p-6 border-b flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-black dark:bg-white flex items-center justify-center">
-              <FileSpreadsheet className="w-5 h-5 text-white dark:text-black" />
+            <div className="w-10 h-10 rounded-xl app-hero-stat border flex items-center justify-center">
+              <FileSpreadsheet className="w-5 h-5 app-hero-title" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-zinc-800 dark:text-zinc-100">Import Campaign Tasks</h2>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+              <h2 className="text-lg font-black app-hero-title">Import Campaign Tasks</h2>
+              <p className="text-xs app-hero-copy font-medium">
                 {step === 'upload' && 'Upload your .xlsx file with campaign tasks'}
                 {step === 'mapping' && `Map columns from ${fileName}`}
                 {step === 'preview' && `Preview: ${parsedData.length} tasks detected from ${fileName}`}
@@ -462,7 +462,7 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
             return (
               <div key={label} className="flex items-center gap-2">
                 {i > 0 && <ArrowRight className="w-4 h-4 text-zinc-300 dark:text-zinc-600" />}
-                <span className={`text-xs font-bold px-3 py-1 rounded-full ${isActive ? 'bg-black dark:bg-white text-white dark:text-black' : isDone ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'}`}>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full ${isActive ? 'app-accent-button' : isDone ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400 dark:text-zinc-500'}`}>
                   {isDone && !isActive ? '✓ ' : ''}{label}
                 </span>
               </div>
@@ -602,7 +602,7 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
                   <div key={idx} className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
                     <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-black dark:bg-white rounded-xl flex items-center justify-center text-white dark:text-black text-[10px] font-black">
+                        <div className="w-8 h-8 app-accent-button rounded-xl flex items-center justify-center text-[10px] font-black">
                           {idx + 1}
                         </div>
                         <div>
@@ -702,7 +702,7 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
             {step === 'mapping' && (
               <button
                 onClick={handleApplyMapping}
-                className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg"
+                className="px-5 py-2.5 app-accent-button rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg"
               >
                 Apply Mapping <ArrowRight className="w-4 h-4" />
               </button>
@@ -710,7 +710,7 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
             {step === 'preview' && (
               <button
                 onClick={() => setStep('split')}
-                className="px-5 py-2.5 bg-zinc-700 dark:bg-zinc-300 text-white dark:text-black rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-zinc-600 dark:hover:bg-zinc-400 transition-all shadow-lg"
+                className="px-5 py-2.5 app-accent-button rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg"
               >
                 View Function Split <ArrowRight className="w-4 h-4" />
               </button>
@@ -721,7 +721,7 @@ export function XlsxUploader({ isOpen, onClose, onImport }: XlsxUploaderProps) {
               return (
               <button
                 onClick={handleImport}
-                className="px-5 py-2.5 bg-black dark:bg-white text-white dark:text-black rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all shadow-lg"
+                className="px-5 py-2.5 app-accent-button rounded-xl text-sm font-bold flex items-center gap-2 transition-all shadow-lg"
               >
                 <CheckCircle2 className="w-4 h-4" /> Import {campSet.size} Campaigns ({totalCount} Tasks)
               </button>

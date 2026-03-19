@@ -37,18 +37,18 @@ export async function apiRequest<T>(
 }
 
 export type WorkspaceDataResponse = {
-  tasks?: any[];
-  successLogs?: any[];
-  taskNotifications?: any[];
-  mistakes?: any[];
-  tasksPerTeam?: Record<string, any>;
-  opsCampaigns?: any[];
-  campaignIntakes?: any[];
-  organizedUpdates?: any[];
-  linkWidgets?: any[];
-  shiftHandovers?: any[];
-  coverageRecords?: any[];
-  standaloneTasks?: any[];
+  tasks?: unknown[];
+  successLogs?: unknown[];
+  taskNotifications?: unknown[];
+  mistakes?: unknown[];
+  tasksPerTeam?: Record<string, unknown>;
+  opsCampaigns?: unknown[];
+  campaignIntakes?: unknown[];
+  organizedUpdates?: unknown[];
+  linkWidgets?: unknown[];
+  shiftHandovers?: unknown[];
+  coverageRecords?: unknown[];
+  standaloneTasks?: unknown[];
 };
 
 export type TranslateToEnglishResponse = {

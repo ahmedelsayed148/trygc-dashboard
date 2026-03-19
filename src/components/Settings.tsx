@@ -45,9 +45,9 @@ export function Settings() {
 
   return (
     <div className="p-8 space-y-6 max-w-7xl mx-auto">
-      <div>
-        <h1 className="text-4xl font-black text-zinc-800 dark:text-zinc-100 mb-2">Settings</h1>
-        <p className="text-zinc-500 font-medium">Manage your account and application preferences</p>
+      <div className="app-hero-panel rounded-[2rem] border p-6">
+        <h1 className="app-hero-title text-4xl font-black mb-2">Settings</h1>
+        <p className="app-hero-copy font-medium">Manage your account and application preferences</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
@@ -61,7 +61,7 @@ export function Settings() {
                 className={cn(
                   'w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all text-left text-sm font-semibold',
                   activeSection === section.id
-                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                    ? 'app-accent-button'
                     : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900',
                 )}
               >
@@ -122,7 +122,7 @@ export function Settings() {
                     </div>
                     <button 
                       onClick={() => navigate('/demo')}
-                      className="px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center gap-2"
+                      className="app-accent-button px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
                     >
                       <Sparkles className="w-4 h-4" />
                       View Demo
@@ -244,12 +244,12 @@ export function Settings() {
                           onClick={() => setFontFamily(option.id)}
                           className={`rounded-2xl border-2 p-4 text-left transition-all ${
                             fontFamily === option.id
-                              ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black'
+                              ? 'border-transparent app-accent-button'
                               : 'border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:hover:border-zinc-700'
                           }`}
                         >
                           <div className="text-lg font-bold" style={{ fontFamily: FONT_FAMILY_TOKENS[option.id] }}>{option.label}</div>
-                          <div className={`mt-2 text-sm ${fontFamily === option.id ? 'text-white/80 dark:text-black/70' : 'text-zinc-500 dark:text-zinc-400'}`}>
+                          <div className={`mt-2 text-sm ${fontFamily === option.id ? 'text-[rgba(var(--app-primary-contrast-rgb),0.78)]' : 'text-zinc-500 dark:text-zinc-400'}`}>
                             {option.description}
                           </div>
                           <div className="mt-3 text-sm" style={{ fontFamily: FONT_FAMILY_TOKENS[option.id] }}>
@@ -275,14 +275,14 @@ export function Settings() {
                             onClick={() => setFontScale(preset.scale)}
                             className={`rounded-2xl border px-4 py-3 text-left transition-all ${
                               Math.abs(fontScale - preset.scale) < 0.001
-                                ? 'border-black bg-black text-white dark:border-white dark:bg-white dark:text-black'
+                                ? 'border-transparent app-accent-button'
                                 : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:hover:border-zinc-600'
                             }`}
                           >
                             <div className="text-sm font-black">{preset.label}</div>
                             <div className={`mt-1 text-xs ${
                               Math.abs(fontScale - preset.scale) < 0.001
-                                ? 'text-white/80 dark:text-black/70'
+                                ? 'text-[rgba(var(--app-primary-contrast-rgb),0.78)]'
                                 : 'text-zinc-500 dark:text-zinc-400'
                             }`}>
                               {preset.description}
@@ -379,7 +379,7 @@ export function Settings() {
                     </div>
                     <button 
                       onClick={() => navigate('/data-export')}
-                      className="px-6 py-3 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black rounded-xl font-bold hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-all flex items-center gap-2"
+                      className="app-accent-button px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
                     >
                       <Download className="w-4 h-4" />
                       Go to Data Export
@@ -396,7 +396,7 @@ export function Settings() {
                     </div>
                     <button 
                       onClick={() => navigate('/data-import')}
-                      className="px-6 py-3 bg-zinc-800 dark:bg-zinc-200 text-white dark:text-black rounded-xl font-bold hover:bg-zinc-700 dark:hover:bg-zinc-300 transition-all flex items-center gap-2"
+                      className="app-accent-button px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
                     >
                       <Upload className="w-4 h-4" />
                       Go to Data Import
@@ -511,7 +511,7 @@ export function Settings() {
                   }
                 }}
                 disabled={isChangingPassword}
-                className="flex-1 px-6 py-3 bg-black dark:bg-white text-white dark:text-black rounded-xl font-bold hover:bg-zinc-800 dark:hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 px-6 py-3 app-accent-button rounded-xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {isChangingPassword ? (
                   <>
