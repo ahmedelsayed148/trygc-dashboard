@@ -804,7 +804,7 @@ export function Root() {
 
         await apiRequest('community-team-data', {
           method: 'POST',
-          body: communityWorkspaceRef.current,
+          body: { data: communityWorkspaceRef.current },
         });
 
         if (saveRequestId !== saveRequestIdRef.current) {
