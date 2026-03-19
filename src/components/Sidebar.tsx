@@ -50,8 +50,8 @@ function SidebarLink({
         title={isCollapsed ? item.label : undefined}
         className={({ isActive }) =>
           cn(
-            'flex items-center rounded-lg text-sm font-medium transition-all duration-150 mb-0.5 group relative app-sidebar-link',
-            isCollapsed ? 'justify-center w-10 h-10 mx-auto' : 'gap-3 px-3 py-2',
+            'app-sidebar-link group relative mb-1 flex items-center rounded-2xl text-sm font-medium transition-all duration-150',
+            isCollapsed ? 'mx-auto h-11 w-11 justify-center' : 'gap-3 px-3.5 py-2.5',
             isActive
               ? ''
               : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-50'
@@ -60,7 +60,7 @@ function SidebarLink({
       >
         {({ isActive }) => (
           <>
-            <item.icon className={cn('w-4 h-4 shrink-0 transition-transform duration-150', isActive && 'scale-110')} />
+            <item.icon className={cn('app-sidebar-link-icon w-4 h-4 shrink-0 transition-transform duration-150', isActive && 'scale-110')} />
             <AnimatePresence>
               {!isCollapsed && (
                 <motion.span
@@ -75,7 +75,7 @@ function SidebarLink({
             </AnimatePresence>
             {item.badge !== undefined && !isCollapsed && (
               <span
-                className="ml-auto min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full flex items-center justify-center"
+                className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold"
                 style={isActive
                   ? { background: 'rgba(var(--app-primary-contrast-rgb,255 255 255),0.2)', color: 'rgb(var(--app-primary-contrast-rgb,255 255 255))' }
                   : { background: 'var(--app-primary,#18181b)', color: 'rgb(var(--app-primary-contrast-rgb,255 255 255))' }
@@ -178,11 +178,11 @@ function SidebarContent({
     <>
       {/* Logo / Brand */}
       <div className={cn(
-        'app-shell-divider flex h-14 shrink-0 items-center border-b',
-        isCollapsed ? 'justify-center px-4' : 'px-4 gap-2.5'
+        'app-shell-divider flex h-16 shrink-0 items-center border-b',
+        isCollapsed ? 'justify-center px-4' : 'gap-3 px-4'
       )}>
         <div
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl shadow-sm"
           style={{ backgroundColor: 'var(--app-primary, #18181b)' }}
         >
           <Zap className="w-4 h-4" style={{ color: 'rgb(var(--app-primary-contrast-rgb, 255 255 255))' }} />
@@ -196,7 +196,7 @@ function SidebarContent({
               transition={{ duration: 0.15 }}
               className="min-w-0"
             >
-              <span className="text-sm font-black text-zinc-900 dark:text-zinc-50 whitespace-nowrap tracking-tight">TryGC OPS</span>
+              <span className="whitespace-nowrap text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-50">TryGC OPS</span>
               <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-zinc-400">
                 Command Center
               </p>
@@ -206,15 +206,15 @@ function SidebarContent({
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 scrollbar-none">
+      <nav className="flex-1 overflow-y-auto px-2 py-3 scrollbar-none">
         {NAV_SECTIONS.map(section => {
           const sectionItems = navItems.filter(item => section.items.includes(item.to));
           if (!sectionItems.length) return null;
 
           return (
-            <div key={section.label} className="mb-1">
+            <div key={section.label} className="mb-2">
               {!isCollapsed && (
-                <p className="text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-600 px-2 pt-3 pb-1">
+                <p className="px-2 pb-1 pt-3 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-600">
                   {section.label}
                 </p>
               )}
@@ -229,7 +229,7 @@ function SidebarContent({
       </nav>
 
       {/* Footer */}
-      <div className="app-shell-divider border-t p-2 shrink-0 space-y-1">
+      <div className="app-shell-divider shrink-0 space-y-1 border-t p-2">
         {/* ⌘K hint */}
         <AnimatePresence>
           {!isCollapsed && (
@@ -237,10 +237,10 @@ function SidebarContent({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex items-center justify-between rounded-xl border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.56)] px-2 py-1.5"
+              className="flex items-center justify-between rounded-2xl border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.56)] px-2.5 py-2"
             >
               <span className="text-[10px] font-semibold text-zinc-400">Command palette</span>
-              <kbd className="text-[9px] font-black text-zinc-400 bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-1.5 py-0.5 rounded font-mono">⌘K</kbd>
+              <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">⌘K</kbd>
             </motion.div>
           )}
         </AnimatePresence>

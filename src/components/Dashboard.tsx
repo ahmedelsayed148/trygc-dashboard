@@ -167,13 +167,21 @@ export function Dashboard() {
   }, []);
 
   const displayName = (userName || userEmail).split(' ')[0] || 'there';
+  const focusChips = useMemo(() => {
+    const items = [];
+    items.push(`${stats.done} cleared`);
+    if (stats.inProgress > 0) items.push(`${stats.inProgress} active`);
+    if (stats.overdue > 0) items.push(`${stats.overdue} urgent`);
+    if (stats.achievementRate > 0) items.push(`${stats.achievementRate}% target hit`);
+    return items.slice(0, 4);
+  }, [stats.achievementRate, stats.done, stats.inProgress, stats.overdue]);
 
   return (
     <motion.div
       variants={stagger.container}
       initial="hidden"
       animate="show"
-      className="space-y-6"
+      className="app-dashboard-grid-glow space-y-6"
     >
       {/* Hero Header */}
       <motion.div variants={stagger.item}>
@@ -205,6 +213,15 @@ export function Dashboard() {
                   ? `${stats.total} tasks across the team · ${stats.overdue > 0 ? `${stats.overdue} overdue` : 'all on track'}`
                   : `${stats.total} tasks assigned · ${stats.completionRate}% completion rate`}
               </p>
+              {focusChips.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {focusChips.map((chip) => (
+                    <span key={chip} className="app-hero-chip rounded-full border px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.16em]">
+                      {chip}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 self-start sm:self-auto">
               <div className="app-hero-chip rounded-xl border px-3 py-2 text-xs font-bold backdrop-blur-sm flex items-center gap-2">
@@ -247,7 +264,7 @@ export function Dashboard() {
       </motion.div>
 
       {/* Stats Grid */}
-      <motion.div variants={stagger.item} className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+      <motion.div variants={stagger.item} className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard
           label="Total Tasks"
           value={stats.total}
@@ -288,7 +305,7 @@ export function Dashboard() {
       )}
 
       {/* Middle Row */}
-      <motion.div variants={stagger.item} className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <motion.div variants={stagger.item} className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Achievement */}
         <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
@@ -376,7 +393,7 @@ export function Dashboard() {
       </motion.div>
 
       {/* Bottom Row */}
-      <motion.div variants={stagger.item} className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <motion.div variants={stagger.item} className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Recent Tasks */}
         <div className="app-panel rounded-[var(--app-card-radius)] border p-5">
           <div className="flex items-center justify-between mb-4">
@@ -393,7 +410,7 @@ export function Dashboard() {
               recentTasks.map((task: TaskLike) => (
                 <div
                   key={task.id}
-                  className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer group"
+                  className="group flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 hover:border-[rgba(var(--app-primary-rgb),0.08)] hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors cursor-pointer"
                 >
                   <StatusDot status={task.status} />
                   <div className="flex-1 min-w-0">
@@ -424,7 +441,7 @@ export function Dashboard() {
             <div className="space-y-1.5">
               {teamPerformance.length > 0 ? (
                 teamPerformance.map((member, idx) => (
-                  <div key={member.name} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                  <div key={member.name} className="flex items-center gap-3 rounded-2xl border border-transparent px-3 py-3 hover:border-[rgba(var(--app-primary-rgb),0.08)] hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
                     <div className={cn(
                       'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0',
                       idx === 0 ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900' :
@@ -460,7 +477,7 @@ export function Dashboard() {
             <div className="space-y-1.5">
               {recentSuccesses.length > 0 ? (
                 recentSuccesses.map((success: SuccessLike) => (
-                  <div key={success.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
+                  <div key={success.id} className="flex items-start gap-3 rounded-2xl border border-transparent px-3 py-3 hover:border-[rgba(var(--app-primary-rgb),0.08)] hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors">
                     <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
                       <Star className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                     </div>
@@ -490,18 +507,18 @@ function StatCard({ label, value, icon: Icon, sub, accent, danger, onClick }: {
     <button
       onClick={onClick}
       className={cn(
-        'group relative rounded-[var(--app-card-radius)] border p-4 md:p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
+        'group relative overflow-hidden rounded-[var(--app-card-radius)] border p-4 md:p-5 text-left transition-all hover:-translate-y-0.5 hover:shadow-md',
         danger && value > 0
           ? 'border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/20'
           : accent
-          ? 'border-transparent text-[rgb(var(--app-primary-contrast-rgb))]'
-          : 'app-panel'
+          ? 'app-dashboard-metric-strong border-transparent text-[rgb(var(--app-primary-contrast-rgb))]'
+          : 'app-dashboard-metric'
       )}
-      style={accent ? { background: 'var(--app-primary)' } : undefined}
     >
+      <div className="absolute inset-x-4 top-0 h-1 rounded-b-full bg-[rgba(var(--app-primary-rgb),0.12)]" />
       <div className="flex items-start justify-between mb-3">
         <div className={cn(
-          'w-9 h-9 rounded-xl flex items-center justify-center',
+          'w-10 h-10 rounded-2xl flex items-center justify-center',
           danger && value > 0 ? 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400' :
           accent ? 'bg-white/18 text-white' :
           'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
@@ -546,8 +563,8 @@ function ActionRow({ label, to, navigate, primary }: { label: string; to: string
       className={cn(
         'w-full flex items-center justify-between rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all group',
         primary
-          ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-zinc-200'
-          : 'bg-zinc-50 dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+          ? 'rounded-2xl bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200'
+          : 'rounded-2xl border border-[rgba(var(--app-primary-rgb),0.08)] bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800'
       )}
     >
       {label}
