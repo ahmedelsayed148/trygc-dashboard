@@ -1,0 +1,269 @@
+import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { NavLink, useLocation } from '../lib/routerCompat';
+import { motion, AnimatePresence } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { AppContext } from './Root';
+import { getVisibleNavItems, NAV_SECTIONS } from '../lib/navigation';
+import { ChevronLeft, ChevronRight, X, Zap } from 'lucide-react';
+
+interface SidebarProps {
+  isAdmin: boolean;
+  isCollapsed: boolean;
+  mobileOpen: boolean;
+  onMobileOpenChange: (nextValue: boolean) => void;
+  onToggleCollapse: () => void;
+}
+
+function NavTooltip({ children, label, show }: { children: React.ReactNode; label: string; show: boolean }) {
+  const [hovered, setHovered] = useState(false);
+
+  return (
+    <div className="relative" onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+      {children}
+      {show && hovered && (
+        <div className="absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 pointer-events-none">
+          <div className="rounded-xl border border-white/10 bg-[hsl(var(--foreground)/0.96)] px-3 py-1.5 text-xs font-bold whitespace-nowrap text-[hsl(var(--background))] shadow-2xl">
+            {label}
+            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-[hsl(var(--foreground)/0.96)]" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SidebarLink({
+  item,
+  isCollapsed,
+  onClick,
+}: {
+  item: { to: string; label: string; icon: React.ElementType; end?: boolean; badge?: string };
+  isCollapsed: boolean;
+  onClick?: () => void;
+}) {
+  return (
+    <NavTooltip label={item.label} show={isCollapsed}>
+      <NavLink
+        to={item.to}
+        end={item.end}
+        onClick={onClick}
+        title={isCollapsed ? item.label : undefined}
+        className={({ isActive }) =>
+          cn(
+            'app-sidebar-link group relative mb-1 flex items-center rounded-2xl text-sm font-medium transition-all duration-150',
+            isCollapsed ? 'mx-auto h-11 w-11 justify-center' : 'gap-3 px-3.5 py-2.5',
+            isActive
+              ? ''
+              : 'text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800/60 hover:text-zinc-900 dark:hover:text-zinc-50'
+          )
+        }
+      >
+        {({ isActive }) => (
+          <>
+            <item.icon className={cn('app-sidebar-link-icon w-4 h-4 shrink-0 transition-transform duration-150', isActive && 'scale-110')} />
+            <AnimatePresence>
+              {!isCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="flex-1 truncate"
+                >
+                  {item.label}
+                </motion.span>
+              )}
+            </AnimatePresence>
+            {item.badge !== undefined && !isCollapsed && (
+              <span
+                className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold"
+                style={isActive
+                  ? { background: 'rgba(var(--app-primary-contrast-rgb,255 255 255),0.2)', color: 'rgb(var(--app-primary-contrast-rgb,255 255 255))' }
+                  : { background: 'var(--app-primary,#18181b)', color: 'rgb(var(--app-primary-contrast-rgb,255 255 255))' }
+                }
+              >
+                {item.badge}
+              </span>
+            )}
+          </>
+        )}
+      </NavLink>
+    </NavTooltip>
+  );
+}
+
+export function Sidebar({
+  isAdmin,
+  isCollapsed,
+  mobileOpen,
+  onMobileOpenChange,
+  onToggleCollapse,
+}: SidebarProps) {
+  const ctx = useContext(AppContext);
+  const userFeatures = ctx?.userFeatures as string[] | null;
+  const userEmail = ctx?.userEmail || '';
+  const location = useLocation();
+  const navItems = useMemo(
+    () => getVisibleNavItems({ isAdmin, userEmail, userFeatures }),
+    [isAdmin, userEmail, userFeatures],
+  );
+
+  useEffect(() => {
+    onMobileOpenChange(false);
+  }, [location.pathname, onMobileOpenChange]);
+
+  return (
+    <>
+      <AnimatePresence>
+        {mobileOpen && (
+          <div className="fixed inset-0 z-50 md:hidden">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="absolute inset-0 bg-black/50"
+              onClick={() => onMobileOpenChange(false)}
+            />
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+              className="app-shell-chrome absolute left-0 top-0 flex h-full w-72 flex-col border-r backdrop-blur-xl"
+            >
+              <button
+                onClick={() => onMobileOpenChange(false)}
+                className="absolute right-3 top-3.5 z-10 rounded-xl bg-[hsl(var(--muted)/0.92)] p-1.5 text-zinc-500 transition-colors hover:bg-[hsl(var(--muted))]"
+                aria-label="Close menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+              <SidebarContent
+                navItems={navItems}
+                isCollapsed={false}
+                onToggleCollapse={onToggleCollapse}
+                onLinkClick={() => onMobileOpenChange(false)}
+              />
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <motion.aside
+        animate={{ width: isCollapsed ? 'var(--app-sidebar-collapsed-width, 68px)' : 'var(--app-sidebar-width, 220px)' }}
+        transition={{ duration: 0.25, ease: 'easeInOut' }}
+        className={cn(
+          'app-shell-chrome relative hidden h-full border-r backdrop-blur-xl md:flex md:flex-col',
+          'overflow-hidden shrink-0'
+        )}
+      >
+        <SidebarContent navItems={navItems} isCollapsed={isCollapsed} onToggleCollapse={onToggleCollapse} />
+      </motion.aside>
+    </>
+  );
+}
+
+function SidebarContent({
+  navItems,
+  isCollapsed,
+  onToggleCollapse,
+  onLinkClick,
+}: {
+  navItems: Array<{ to: string; label: string; icon: React.ElementType; end?: boolean; badge?: string }>;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  onLinkClick?: () => void;
+}) {
+  return (
+    <>
+      {/* Logo / Brand */}
+      <div className={cn(
+        'app-shell-divider flex h-16 shrink-0 items-center border-b',
+        isCollapsed ? 'justify-center px-4' : 'gap-3 px-4'
+      )}>
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl shadow-sm"
+          style={{ backgroundColor: 'var(--app-primary, #18181b)' }}
+        >
+          <Zap className="w-4 h-4" style={{ color: 'rgb(var(--app-primary-contrast-rgb, 255 255 255))' }} />
+        </div>
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.15 }}
+              className="min-w-0"
+            >
+              <span className="whitespace-nowrap text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-50">TryGC OPS</span>
+              <p className="mt-0.5 text-[9px] font-black uppercase tracking-[0.22em] text-zinc-400">
+                Command Center
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-2 py-3 scrollbar-none">
+        {NAV_SECTIONS.map(section => {
+          const sectionItems = navItems.filter(item => section.items.includes(item.to));
+          if (!sectionItems.length) return null;
+
+          return (
+            <div key={section.label} className="mb-2">
+              {!isCollapsed && (
+                <p className="px-2 pb-1 pt-3 text-[9px] font-black uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-600">
+                  {section.label}
+                </p>
+              )}
+              {isCollapsed && <div className="my-2 h-px bg-zinc-100 dark:bg-zinc-800/60 mx-2" />}
+
+              {sectionItems.map(item => (
+                <SidebarLink key={item.to} item={item} isCollapsed={isCollapsed} onClick={onLinkClick} />
+              ))}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="app-shell-divider shrink-0 space-y-1 border-t p-2">
+        {/* ⌘K hint */}
+        <AnimatePresence>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center justify-between rounded-2xl border border-[rgba(var(--app-primary-rgb),0.08)] bg-[hsl(var(--muted)/0.56)] px-2.5 py-2"
+            >
+              <span className="text-[10px] font-semibold text-zinc-400">Command palette</span>
+              <kbd className="rounded border border-zinc-200 bg-white px-1.5 py-0.5 font-mono text-[9px] font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800">⌘K</kbd>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Collapse toggle */}
+        <button
+          onClick={onToggleCollapse}
+          className={cn(
+            'flex items-center justify-center rounded-lg transition-all duration-150',
+            'text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800',
+            isCollapsed ? 'w-10 h-8 mx-auto' : 'w-full h-8 gap-2'
+          )}
+        >
+          {isCollapsed ? (
+            <ChevronRight className="w-4 h-4" />
+          ) : (
+            <>
+              <ChevronLeft className="w-4 h-4" />
+              <span className="text-xs font-medium">Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </>
+  );
+}
