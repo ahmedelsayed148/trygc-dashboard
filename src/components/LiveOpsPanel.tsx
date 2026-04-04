@@ -62,7 +62,10 @@ function getTaskTone(status: string) {
 
 export function LiveOpsPanel() {
   const ctx = useContext(AppContext);
-  const operationalTasks = (ctx?.operationalTasks || []) as Array<Record<string, unknown>>;
+  const operationalTasks = useMemo(
+    () => (ctx?.operationalTasks ?? []) as Array<Record<string, unknown>>,
+    [ctx?.operationalTasks],
+  );
   const isLoading = ctx?.isLoading || false;
   const refreshWorkspaceData = ctx?.refreshWorkspaceData;
   const userEmail = ctx?.userEmail || '';

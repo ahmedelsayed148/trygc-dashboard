@@ -95,7 +95,7 @@ function excelSerialToDate(serial: number): string {
   return dateInfo.toISOString().substring(0, 10);
 }
 
-function normalizeDate(raw: any): string {
+function normalizeDate(raw: unknown): string {
   if (!raw) return '';
   // Excel serial number
   if (typeof raw === 'number') {
@@ -110,21 +110,21 @@ function normalizeDate(raw: any): string {
   return s;
 }
 
-function normalizeMarket(raw: any): string {
+function normalizeMarket(raw: unknown): string {
   if (!raw) return 'EGY';
   const s = String(raw).trim().toUpperCase();
   const found = MARKETS.find(m => m.toUpperCase() === s);
-  return found || raw || 'EGY';
+  return found || String(raw) || 'EGY';
 }
 
-function normalizePhase(raw: any): string {
+function normalizePhase(raw: unknown): string {
   if (!raw) return 'Planning';
   const s = String(raw).trim();
   const found = PHASE_NAMES.find(p => p.toLowerCase() === s.toLowerCase());
   return found || 'Planning';
 }
 
-function parseRows(data: any[][], headers: string[]): ParsedRow[] {
+function parseRows(data: unknown[][], headers: string[]): ParsedRow[] {
   const fieldMap = resolveField(headers);
 
   return data.slice(1).map((row, i) => {
@@ -277,7 +277,7 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
         const data = e.target?.result;
         const workbook = XLSX.read(data, { type: 'binary', cellDates: false });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const raw: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const raw = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as unknown[][];
 
         if (raw.length < 2) {
           setParseError('File appears to be empty or has no data rows.');
@@ -302,8 +302,8 @@ export function CampaignBulkUpload({ isOpen, onClose, onImport, existingCount }:
         setRows(parsed);
         setFileName(file.name);
         setStep('preview');
-      } catch (err: any) {
-        setParseError(`Failed to parse file: ${err.message || err}`);
+      } catch (err: unknown) {
+        setParseError(`Failed to parse file: ${err instanceof Error ? err.message : String(err)}`);
       }
     };
     reader.readAsBinaryString(file);

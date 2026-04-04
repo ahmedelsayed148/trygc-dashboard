@@ -69,7 +69,20 @@ interface Task {
   metricWithDate?: number;
   metricMissingCOV?: number;
   metricConfirmationToday?: number;
-  [key: string]: any;
+  createdAt?: string;
+  [key: string]: unknown;
+}
+
+interface SuccessLog {
+  id?: number | string;
+  agent?: string;
+  createdAt?: string;
+  date?: string;
+  detail?: string;
+  time?: string;
+  timestamp?: string;
+  type?: string;
+  [key: string]: unknown;
 }
 
 interface PersonalDashboardProps {
@@ -78,7 +91,7 @@ interface PersonalDashboardProps {
   userName: string;
   userEmail: string;
   onEditTask: (task: Task) => void;
-  successLogs: any[];
+  successLogs: SuccessLog[];
 }
 
 function calculateAging(start: string, end?: string) {
@@ -103,7 +116,12 @@ export function PersonalDashboard({ tasks, allTasks, userName, userEmail, onEdit
     [allTasks, dateRange],
   );
   const filteredSuccessLogs = useMemo(
-    () => filterByDateRange(successLogs, dateRange, (log: any) => log.timestamp || log.createdAt || log.date),
+    () =>
+      filterByDateRange(
+        successLogs,
+        dateRange,
+        (log: SuccessLog) => log.timestamp || log.createdAt || log.date,
+      ),
     [dateRange, successLogs],
   );
 
@@ -606,7 +624,15 @@ export function PersonalDashboard({ tasks, allTasks, userName, userEmail, onEdit
 
 // ========== SUB-COMPONENTS ==========
 
-function QuickStat({ icon: Icon, label, value }: { icon: any; label: string; value: any }) {
+function QuickStat({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+}) {
   return (
     <motion.div 
       whileHover={{ scale: 1.02, y: -2 }}

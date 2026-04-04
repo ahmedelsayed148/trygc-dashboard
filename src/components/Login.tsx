@@ -3,7 +3,9 @@ import { Mail, Lock, User, ArrowRight, Loader2, AlertCircle, ShieldCheck, Eye, E
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { supabase } from './supabaseClient';
 
-export function Login({ onLogin }: { onLogin: (session: any) => void }) {
+type LoginSession = NonNullable<Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']>;
+
+export function Login({ onLogin }: { onLogin: (session: LoginSession) => void }) {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,8 +37,8 @@ export function Login({ onLogin }: { onLogin: (session: any) => void }) {
         if (loginError) throw loginError;
         if (data.session) onLogin(data.session);
       }
-    } catch (err: any) {
-      setError(err.message || 'Authentication failed');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setLoading(false);
     }

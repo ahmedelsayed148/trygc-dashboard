@@ -1,32 +1,19 @@
 import React, { useContext, useMemo, useRef, useEffect, useState } from 'react';
 import { AppContext } from './Root';
-import { Bell, CheckCircle2, Clock, AlertCircle, Trophy, X, ClipboardList, CheckCheck } from 'lucide-react';
+import { Bell, CheckCheck, ClipboardList, Sparkles, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  buildLatestNotificationFeed,
+  formatNotificationFeedTime,
+  type NotificationFeedItem,
+} from '@/lib/notificationFeed';
+import type { OrganizedUpdateRecord } from '@/lib/workspaceTools';
 
 interface NotificationPanelProps {
   isOpen: boolean;
   onClose: () => void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
-
-interface Notification {
-  id: string;
-  type: 'task_done' | 'task_overdue' | 'task_blocked' | 'success' | 'task_new';
-  title: string;
-  description: string;
-  time: string;
-  icon: React.ElementType;
-}
-
-type NotificationTask = {
-  id: string | number;
-  status?: string;
-  startDateTime?: string;
-  endDateTime?: string;
-  slaHrs?: number;
-  campaign?: string;
-  assignedTo?: string;
-};
 
 type SuccessLog = {
   id?: string | number;
@@ -41,21 +28,21 @@ type TaskNotificationRecord = {
   assignedTo?: string;
   taskName?: string;
   taskDescription?: string;
+  timestamp?: string;
   time?: string;
   date?: string;
 };
 
-const EMPTY_TASKS: NotificationTask[] = [];
 const EMPTY_SUCCESS_LOGS: SuccessLog[] = [];
 const EMPTY_TASK_NOTIFICATIONS: TaskNotificationRecord[] = [];
+const EMPTY_ORGANIZED_UPDATES: OrganizedUpdateRecord[] = [];
 
 export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationPanelProps) {
   const ctx = useContext(AppContext);
-  const tasks = (ctx?.operationalTasks?.length
-    ? ctx.operationalTasks
-    : ctx?.tasks) as NotificationTask[] | undefined ?? EMPTY_TASKS;
   const successLogs = (ctx?.successLogs as SuccessLog[] | undefined) ?? EMPTY_SUCCESS_LOGS;
   const taskNotifications = (ctx?.taskNotifications as TaskNotificationRecord[] | undefined) ?? EMPTY_TASK_NOTIFICATIONS;
+  const organizedUpdates =
+    (ctx?.organizedUpdates as OrganizedUpdateRecord[] | undefined) ?? EMPTY_ORGANIZED_UPDATES;
   const userEmail = ctx?.userEmail || '';
   const panelRef = useRef<HTMLDivElement>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -78,75 +65,16 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
     };
   }, [isOpen, onClose, triggerRef]);
 
-  const allNotifications = useMemo<Notification[]>(() => {
-    const notifs: Notification[] = [];
-
-    successLogs.slice(0, 3).forEach((log) => {
-      notifs.push({
-        id: `success-${log.id}`,
-        type: 'success',
-        title: `${log.title || log.agent || 'Team'} logged an update`,
-        description: log.detail?.substring(0, 80) || 'Success recorded',
-        time: log.time || 'Recently',
-        icon: Trophy,
-      });
-    });
-
-    tasks.filter((t) => {
-      if (t.status === 'Done' || !t.startDateTime) return false;
-      const aging = (Date.now() - new Date(t.startDateTime).getTime()) / 3_600_000;
-      return aging > Number(t.slaHrs || 0);
-    }).slice(0, 3).forEach((t) => {
-      notifs.push({
-        id: `overdue-${t.id}`,
-        type: 'task_overdue',
-        title: 'SLA Breach',
-        description: `${t.campaign} — ${t.assignedTo || 'unassigned'}`,
-        time: 'Overdue',
-        icon: AlertCircle,
-      });
-    });
-
-    tasks.filter((t) => t.status === 'Done' && t.endDateTime)
-      .sort((a, b) => new Date(b.endDateTime || 0).getTime() - new Date(a.endDateTime || 0).getTime())
-      .slice(0, 3).forEach((t) => {
-        notifs.push({
-          id: `done-${t.id}`,
-          type: 'task_done',
-          title: 'Task Completed',
-          description: `${t.campaign} by ${t.assignedTo || 'unknown'}`,
-          time: new Date(t.endDateTime || 0).toLocaleDateString(),
-          icon: CheckCircle2,
-        });
-      });
-
-    tasks.filter((t) => t.status === 'Blocked').slice(0, 2).forEach((t) => {
-      notifs.push({
-        id: `blocked-${t.id}`,
-        type: 'task_blocked',
-        title: 'Task Blocked',
-        description: `${t.campaign} — ${t.assignedTo || 'unassigned'}`,
-        time: 'Needs attention',
-        icon: AlertCircle,
-      });
-    });
-
-    taskNotifications
-      .filter((n) => n.assignedTo?.toLowerCase() === userEmail.toLowerCase())
-      .slice(0, 5)
-      .forEach((n) => {
-        notifs.push({
-          id: n.id,
-          type: 'task_new',
-          title: 'New Task Assigned',
-          description: `${n.taskName} — ${n.taskDescription?.substring(0, 60) || 'No description'}`,
-          time: n.time || n.date || 'Recently',
-          icon: ClipboardList,
-        });
-      });
-
-    return notifs.slice(0, 12);
-  }, [tasks, successLogs, taskNotifications, userEmail]);
+  const allNotifications = useMemo<NotificationFeedItem[]>(
+    () =>
+      buildLatestNotificationFeed({
+        organizedUpdates,
+        successLogs,
+        taskNotifications,
+        userEmail,
+      }),
+    [organizedUpdates, successLogs, taskNotifications, userEmail],
+  );
 
   const visible = useMemo(
     () => allNotifications.filter((n) => !dismissed.has(n.id)),
@@ -197,7 +125,6 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
       <div className="max-h-[26rem] overflow-y-auto">
         {visible.length > 0 ? (
           visible.map((notif) => {
-            const Icon = notif.icon;
             return (
               <div
                 key={notif.id}
@@ -205,16 +132,22 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
               >
                 <div className={cn(
                   'w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0',
-                  notif.type === 'task_overdue' || notif.type === 'task_blocked'
+                  notif.category === 'assignment'
                     ? 'bg-zinc-900 dark:bg-zinc-200 text-white dark:text-black'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300',
                 )}>
-                  <Icon className="w-4 h-4" />
+                  {notif.category === 'assignment' ? (
+                    <ClipboardList className="w-4 h-4" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-bold text-zinc-800 dark:text-zinc-100">{notif.title}</p>
-                    <span className="text-[10px] font-medium text-zinc-400 whitespace-nowrap shrink-0">{notif.time}</span>
+                    <span className="text-[10px] font-medium text-zinc-400 whitespace-nowrap shrink-0">
+                      {formatNotificationFeedTime(notif.createdAt)}
+                    </span>
                   </div>
                   <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-0.5 truncate">{notif.description}</p>
                 </div>
@@ -234,7 +167,7 @@ export function NotificationPanel({ isOpen, onClose, triggerRef }: NotificationP
               <Bell className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
             </div>
             <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">All caught up</p>
-            <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">No new notifications</p>
+            <p className="text-xs text-zinc-400 dark:text-zinc-600 mt-1">No fresh updates or assignments</p>
           </div>
         )}
       </div>

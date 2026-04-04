@@ -5,18 +5,32 @@ import { AlertCircle } from 'lucide-react';
 import { DateRangeFilter } from './DateRangeFilter';
 import { emptyDateRange, filterByDateRange } from '../lib/dateFilters';
 
+type AnalyticsTask = React.ComponentProps<typeof AdvancedAnalytics>['tasks'][number];
+type AnalyticsSuccessLog = {
+  createdAt?: string;
+  date?: string;
+  timestamp?: string;
+  [key: string]: unknown;
+};
+
 export function Analytics() {
   const ctx = useContext(AppContext);
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const successLogs = ctx?.successLogs || [];
+  const tasks = React.useMemo(
+    () => (ctx?.operationalTasks?.length ? ctx.operationalTasks : (ctx?.tasks ?? [])) as AnalyticsTask[],
+    [ctx?.operationalTasks, ctx?.tasks],
+  );
+  const successLogs = React.useMemo(
+    () => (ctx?.successLogs ?? []) as AnalyticsSuccessLog[],
+    [ctx?.successLogs],
+  );
   const isAdmin = ctx?.isAdmin || false;
   const [dateRange, setDateRange] = React.useState(emptyDateRange);
   const filteredTasks = React.useMemo(
-    () => filterByDateRange(tasks, dateRange, (task: any) => task.endDateTime || task.startDateTime || task.createdAt),
+    () => filterByDateRange(tasks, dateRange, (task: AnalyticsTask) => task.endDateTime || task.startDateTime || task.createdAt),
     [dateRange, tasks],
   );
   const filteredSuccessLogs = React.useMemo(
-    () => filterByDateRange(successLogs, dateRange, (log: any) => log.timestamp || log.createdAt || log.date),
+    () => filterByDateRange(successLogs, dateRange, (log: AnalyticsSuccessLog) => log.timestamp || log.createdAt || log.date),
     [dateRange, successLogs],
   );
   const deferredTasks = useDeferredValue(filteredTasks);

@@ -44,6 +44,16 @@ type TaskModalState = {
   task?: CampaignTeamTask;
 } | null;
 
+type TaskNotificationRecord = {
+  id?: string | number;
+  [key: string]: unknown;
+};
+
+const EMPTY_TASK_NOTIFICATIONS: TaskNotificationRecord[] = [];
+const NOOP_SET_TASK_NOTIFICATIONS: React.Dispatch<
+  React.SetStateAction<TaskNotificationRecord[]>
+> = () => undefined;
+
 const LazyCampaignBulkUpload = React.lazy(() =>
   import('./CampaignBulkUpload').then((module) => ({ default: module.CampaignBulkUpload })),
 );
@@ -55,10 +65,14 @@ export function CampaignsManager() {
   const opsCampaigns = normalizeOpsCampaigns(ctx?.opsCampaigns || []);
   const setOpsCampaigns = ctx?.setOpsCampaigns || (() => {});
   const teamMembers = ctx?.teamMembers || [];
-  const taskNotifications = ctx?.taskNotifications || [];
-  const setTaskNotifications = ctx?.setTaskNotifications || (() => {});
+  const taskNotifications =
+    (ctx?.taskNotifications as TaskNotificationRecord[] | undefined) ?? EMPTY_TASK_NOTIFICATIONS;
+  const setTaskNotifications =
+    (ctx?.setTaskNotifications as React.Dispatch<
+      React.SetStateAction<TaskNotificationRecord[]>
+    > | undefined) ?? NOOP_SET_TASK_NOTIFICATIONS;
   const userEmail = ctx?.userEmail || '';
-  const disabledTeams: string[] = ctx?.disabledTeams || [];
+  const disabledTeams = useMemo(() => ctx?.disabledTeams ?? [], [ctx?.disabledTeams]);
   const enabledTeams = OPERATIONS_TEAMS.filter((t) => !disabledTeams.includes(t.id));
 
   const [search, setSearch] = useState('');
@@ -212,7 +226,7 @@ export function CampaignsManager() {
       });
 
       if (notification) {
-        setTaskNotifications((current: any[]) => [notification, ...current]);
+        setTaskNotifications((current) => [notification, ...current]);
         void publishWorkspaceAlert(createAssignmentAlertPayload(notification));
       }
     }

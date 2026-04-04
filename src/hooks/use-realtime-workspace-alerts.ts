@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/components/supabaseClient';
 import {
   getWorkspaceAlertOrigin,
+  initializeWorkspaceAlertAudio,
   isWorkspaceAlertRelevant,
   playWorkspaceAlertSound,
   sendDesktopWorkspaceAlert,
@@ -31,13 +32,35 @@ export function useRealtimeWorkspaceAlerts({
   userEmail,
 }: UseRealtimeWorkspaceAlertsParams) {
   const { preferences } = useNotificationPreferences();
-  const seenAlertsRef = useRef<Set<string>>(new Set());
+  const seenAlertsRef = useRef<string[]>([]);
   const refreshTimeoutRef = useRef<number | null>(null);
+  const latestRefreshWorkspaceDataRef = useRef(refreshWorkspaceData);
+  const latestPreferencesRef = useRef(preferences);
+  const latestUserEmailRef = useRef(userEmail);
+  const latestIsAdminRef = useRef(isAdmin);
+
+  useEffect(() => {
+    latestRefreshWorkspaceDataRef.current = refreshWorkspaceData;
+  }, [refreshWorkspaceData]);
+
+  useEffect(() => {
+    latestPreferencesRef.current = preferences;
+  }, [preferences]);
+
+  useEffect(() => {
+    latestUserEmailRef.current = userEmail;
+  }, [userEmail]);
+
+  useEffect(() => {
+    latestIsAdminRef.current = isAdmin;
+  }, [isAdmin]);
 
   useEffect(() => {
     if (!isAuthenticated || !hasLoadedWorkspace || !userEmail) {
       return undefined;
     }
+
+    initializeWorkspaceAlertAudio();
 
     const origin = getWorkspaceAlertOrigin();
     const scheduleRefresh = () => {
@@ -47,7 +70,7 @@ export function useRealtimeWorkspaceAlerts({
 
       refreshTimeoutRef.current = window.setTimeout(() => {
         refreshTimeoutRef.current = null;
-        void refreshWorkspaceData();
+        void latestRefreshWorkspaceDataRef.current();
       }, 1400);
     };
 
@@ -57,18 +80,26 @@ export function useRealtimeWorkspaceAlerts({
       .on('broadcast', { event: WORKSPACE_ALERT_EVENT }, ({ payload }) => {
         const alert = payload as WorkspaceAlertPayload | undefined;
 
-        if (!alert?.id || alert.origin === origin || seenAlertsRef.current.has(alert.id)) {
+        if (!alert?.id || alert.origin === origin || seenAlertsRef.current.includes(alert.id)) {
           return;
         }
 
-        if (!isWorkspaceAlertRelevant(alert, userEmail, isAdmin)) {
+        if (
+          !isWorkspaceAlertRelevant(
+            alert,
+            latestUserEmailRef.current,
+            latestIsAdminRef.current,
+          )
+        ) {
           return;
         }
 
-        seenAlertsRef.current.add(alert.id);
+        seenAlertsRef.current = [alert.id, ...seenAlertsRef.current].slice(0, 200);
         scheduleRefresh();
 
-        if (!shouldShowWorkspaceAlert(alert, preferences)) {
+        const currentPreferences = latestPreferencesRef.current;
+
+        if (!shouldShowWorkspaceAlert(alert, currentPreferences)) {
           return;
         }
 
@@ -77,11 +108,11 @@ export function useRealtimeWorkspaceAlerts({
           duration: 5000,
         });
 
-        if (preferences.soundAlerts) {
+        if (currentPreferences.soundAlerts) {
           void playWorkspaceAlertSound();
         }
 
-        if (preferences.desktopAlerts) {
+        if (currentPreferences.desktopAlerts) {
           sendDesktopWorkspaceAlert(alert);
         }
       })
@@ -97,10 +128,7 @@ export function useRealtimeWorkspaceAlerts({
     };
   }, [
     hasLoadedWorkspace,
-    isAdmin,
     isAuthenticated,
-    preferences,
-    refreshWorkspaceData,
     userEmail,
   ]);
 }

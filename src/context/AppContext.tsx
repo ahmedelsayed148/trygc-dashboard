@@ -135,7 +135,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => dispatch({ type: 'MARK_SAVED' }), 500);
       }, 1500);
     }
-  }, [state.saveState, state.campaignIntakes, state.updates, state.widgets, state.handovers, state.coverageRecords]);
+  }, [state]);
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }

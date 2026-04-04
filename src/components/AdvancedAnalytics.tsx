@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 
 interface Task {
-  id: number;
+  id: number | string;
   campaign: string;
   description: string;
   assignedTo: string;
@@ -28,12 +28,24 @@ interface Task {
   metricWithDate?: number;
   metricMissingCOV?: number;
   metricConfirmationToday?: number;
-  [key: string]: any;
+  [key: string]: unknown;
+}
+
+interface SuccessLog {
+  id?: number | string;
+  agent?: string;
+  createdAt?: string;
+  date?: string;
+  detail?: string;
+  time?: string;
+  timestamp?: string;
+  type?: string;
+  [key: string]: unknown;
 }
 
 interface AdvancedAnalyticsProps {
   tasks: Task[];
-  successLogs: any[];
+  successLogs: SuccessLog[];
 }
 
 // Monochrome chart palette
@@ -553,7 +565,21 @@ export function AdvancedAnalytics({ tasks, successLogs }: AdvancedAnalyticsProps
 
 // ========== SUB-COMPONENTS ==========
 
-function KpiCard({ icon: Icon, label, value, color, sub, trend }: { icon: any; label: string; value: any; color: string; sub?: string; trend?: 'up' | 'down' }) {
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  color,
+  sub,
+  trend,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  color: string;
+  sub?: string;
+  trend?: 'up' | 'down';
+}) {
   return (
     <div className="bg-white dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-lg hover:shadow-xl transition-all">
       <div className="flex items-center justify-between mb-3">

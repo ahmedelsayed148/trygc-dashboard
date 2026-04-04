@@ -4,20 +4,37 @@ import { Archive as ArchiveIcon, Search, Filter, Calendar, CheckCircle2, Clock, 
 import { DateRangeFilter } from './DateRangeFilter';
 import { emptyDateRange, filterByDateRange } from '../lib/dateFilters';
 
+type ArchivedTask = {
+  assignedTo?: string;
+  campaign?: string;
+  description?: string;
+  endDateTime?: string;
+  id: string | number;
+  metricCON?: number;
+  metricCOV?: number;
+  metricTarget?: number;
+  slaHrs?: number;
+  startDateTime?: string;
+  status?: string;
+};
+
 export function Archive() {
   const ctx = useContext(AppContext);
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
+  const tasks = useMemo(
+    () => (ctx?.operationalTasks?.length ? ctx.operationalTasks : (ctx?.tasks ?? [])) as ArchivedTask[],
+    [ctx?.operationalTasks, ctx?.tasks],
+  );
   const isAdmin = ctx?.isAdmin || false;
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Done');
   const [dateRange, setDateRange] = useState(emptyDateRange);
 
   const archivedTasks = useMemo(() => {
-    return tasks.filter((task: any) => task.status === 'Done');
+    return tasks.filter((task) => task.status === 'Done');
   }, [tasks]);
 
   const filteredArchive = useMemo(() => {
-    const matchingArchive = archivedTasks.filter((task: any) => {
+    const matchingArchive = archivedTasks.filter((task) => {
       const matchesSearch = 
         task.campaign?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         task.assignedTo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -25,10 +42,10 @@ export function Archive() {
       const matchesStatus = statusFilter === 'All' || task.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
-    return filterByDateRange(matchingArchive, dateRange, (task: any) => task.endDateTime || task.startDateTime);
+    return filterByDateRange(matchingArchive, dateRange, (task: ArchivedTask) => task.endDateTime || task.startDateTime);
   }, [archivedTasks, dateRange, searchTerm, statusFilter]);
 
-  const getCompletionTime = (task: any) => {
+  const getCompletionTime = (task: ArchivedTask) => {
     if (!task.endDateTime || !task.startDateTime) return 'N/A';
     const start = new Date(task.startDateTime);
     const end = new Date(task.endDateTime);
@@ -80,7 +97,7 @@ export function Archive() {
         <StatCard label="Total Archived" value={archivedTasks.length} icon={ArchiveIcon} />
         <StatCard 
           label="This Month" 
-          value={archivedTasks.filter((t: any) => {
+          value={archivedTasks.filter((t) => {
             const taskDate = new Date(t.endDateTime || t.startDateTime);
             const now = new Date();
             return taskDate.getMonth() === now.getMonth() && taskDate.getFullYear() === now.getFullYear();
@@ -89,17 +106,17 @@ export function Archive() {
         />
         <StatCard 
           label="On Time" 
-          value={archivedTasks.filter((t: any) => {
+          value={archivedTasks.filter((t) => {
             if (!t.endDateTime || !t.startDateTime) return false;
             const hours = (new Date(t.endDateTime).getTime() - new Date(t.startDateTime).getTime()) / (1000 * 60 * 60);
-            return hours <= t.slaHrs;
+            return hours <= (t.slaHrs || 0);
           }).length} 
           icon={CheckCircle2} 
         />
         <StatCard 
           label="Avg Completion" 
           value={archivedTasks.length > 0 ? 
-            (archivedTasks.reduce((sum: number, t: any) => {
+            (archivedTasks.reduce((sum: number, t) => {
               if (!t.endDateTime || !t.startDateTime) return sum;
               const hours = (new Date(t.endDateTime).getTime() - new Date(t.startDateTime).getTime()) / (1000 * 60 * 60);
               return sum + hours;
@@ -149,7 +166,7 @@ export function Archive() {
       <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-lg border border-zinc-200 dark:border-zinc-800 overflow-hidden">
         {filteredArchive.length > 0 ? (
           <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {filteredArchive.map((task: any) => (
+            {filteredArchive.map((task) => (
               <div key={task.id} className="p-6 hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all group">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-600 dark:text-zinc-400 flex-shrink-0">
@@ -219,7 +236,7 @@ export function Archive() {
   );
 }
 
-function StatCard({ label, value, icon: Icon }: { label: string; value: any; icon: React.ElementType }) {
+function StatCard({ label, value, icon: Icon }: { label: string; value: React.ReactNode; icon: React.ElementType }) {
   return (
     <div className="bg-white dark:bg-zinc-950 rounded-3xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6">
       <div className="w-11 h-11 bg-zinc-900 dark:bg-zinc-100 rounded-2xl flex items-center justify-center mb-4">

@@ -3,26 +3,35 @@ import { AppContext } from './Root';
 import { PersonalDashboard as PersonalDashboardComponent } from './PersonalDashboard';
 import { Eye } from 'lucide-react';
 
+type MemberTask = React.ComponentProps<typeof PersonalDashboardComponent>['tasks'][number];
+type MemberSuccessLog = React.ComponentProps<typeof PersonalDashboardComponent>['successLogs'];
+
 export function MemberViews() {
   const ctx = useContext(AppContext);
   const [selectedMember, setSelectedMember] = useState<string>('all');
 
-  const tasks = ctx?.operationalTasks?.length ? ctx.operationalTasks : ctx?.tasks || [];
-  const successLogs = ctx?.successLogs || [];
+  const tasks = useMemo(
+    () => (ctx?.operationalTasks?.length ? ctx.operationalTasks : (ctx?.tasks ?? [])) as MemberTask[],
+    [ctx?.operationalTasks, ctx?.tasks],
+  );
+  const successLogs = useMemo(
+    () => (ctx?.successLogs ?? []) as MemberSuccessLog,
+    [ctx?.successLogs],
+  );
   const isAdmin = ctx?.isAdmin || false;
 
   // Get all unique team members
   const allAgents = useMemo(() => {
-    return [...new Set(tasks.map((t: any) => t.assignedTo).filter(Boolean))].sort();
+    return [...new Set(tasks.map((t) => t.assignedTo).filter(Boolean))].sort();
   }, [tasks]);
 
   // Filter tasks by selected member
   const memberViewTasks = useMemo(() => {
     if (selectedMember === 'all') return tasks;
-    return tasks.filter((t: any) => t.assignedTo === selectedMember);
+    return tasks.filter((t) => t.assignedTo === selectedMember);
   }, [tasks, selectedMember]);
 
-  const handleEditTask = (task: any) => {
+  const handleEditTask = (task: MemberTask) => {
     console.log('Edit task:', task);
   };
 
@@ -81,8 +90,8 @@ export function MemberViews() {
           {/* Overview Stats */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
             {allAgents.map((agent: string) => {
-              const agentTasks = tasks.filter((t: any) => t.assignedTo === agent);
-              const done = agentTasks.filter((t: any) => t.status === 'Done').length;
+              const agentTasks = tasks.filter((t) => t.assignedTo === agent);
+              const done = agentTasks.filter((t) => t.status === 'Done').length;
               const completionRate = agentTasks.length > 0 ? ((done / agentTasks.length) * 100).toFixed(0) : 0;
               
               return (

@@ -88,8 +88,11 @@ export function WidgetsBoard() {
 
 function WidgetsBoardContent() {
   const ctx = useContext(AppContext);
-  const rawWidgets = ctx?.linkWidgets || [];
-  const setLinkWidgets = ctx?.setLinkWidgets || (() => {});
+  const rawWidgets = useMemo(() => ctx?.linkWidgets ?? [], [ctx?.linkWidgets]);
+  const setLinkWidgets = useMemo(
+    () => ctx?.setLinkWidgets ?? (() => {}),
+    [ctx?.setLinkWidgets],
+  );
   const [isPending, startTransition] = useTransition();
 
   const widgets = useMemo(() => {

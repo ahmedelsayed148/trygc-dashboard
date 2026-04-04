@@ -16,7 +16,14 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import { isTaskAssignedToUser } from '../lib/operations';
+import { type CommunityWorkspace } from '../lib/communityWorkspace';
+import {
+  isTaskAssignedToUser,
+  type CampaignTeamTask,
+  type OpsCampaign,
+  type TaskPriority,
+  type TaskStatus,
+} from '../lib/operations';
 
 const LazyXlsxUploader = React.lazy(() =>
   import('./XlsxUploader').then((module) => ({ default: module.XlsxUploader })),
@@ -46,17 +53,41 @@ const emptyTask = {
   metricCOV: 0,
 };
 
+type DashboardTask = React.ComponentProps<typeof PersonalDashboardComponent>['tasks'][number];
+type DashboardSuccessLog = React.ComponentProps<
+  typeof PersonalDashboardComponent
+>['successLogs'][number];
+type EditableTask = DashboardTask & {
+  blocker?: string;
+  campaignId?: string;
+  finalOutput?: string;
+  metricConfirmationToday?: number;
+  metricMissingDate?: number;
+  metricTarget?: number;
+  metricCON?: number;
+  metricCOV?: number;
+  nextStep?: string;
+  notes?: string;
+  priority?: TaskPriority;
+  resultSummary?: string;
+  status?: TaskStatus;
+  teamId?: string;
+};
+
 export function PersonalDashboard() {
   const ctx = useContext(AppContext);
-  const legacyTasks = ctx?.tasks || [];
-  const operationalTasks = ctx?.operationalTasks || [];
-  const tasks = operationalTasks.length > 0 ? [...operationalTasks, ...legacyTasks] : legacyTasks;
+  const legacyTasks = useMemo(() => ctx?.tasks ?? [], [ctx?.tasks]);
+  const operationalTasks = useMemo(() => ctx?.operationalTasks ?? [], [ctx?.operationalTasks]);
+  const tasks = useMemo(
+    () => (operationalTasks.length > 0 ? [...operationalTasks, ...legacyTasks] : legacyTasks),
+    [legacyTasks, operationalTasks],
+  );
   const setTasks = ctx?.setTasks;
   const setOpsCampaigns = ctx?.setOpsCampaigns;
   const setCommunityWorkspace = ctx?.setCommunityWorkspace;
   const userName = ctx?.userName || '';
   const userEmail = ctx?.userEmail || '';
-  const successLogs = ctx?.successLogs || [];
+  const successLogs = (ctx?.successLogs ?? []) as DashboardSuccessLog[];
 
   const [isUploaderOpen, setIsUploaderOpen] = useState(false);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -65,15 +96,15 @@ export function PersonalDashboard() {
 
   // Edit task state
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<any>(null);
+  const [editFormData, setEditFormData] = useState<EditableTask | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
   const myTasks = useMemo(() => {
-    return tasks.filter((t: any) => isTaskAssignedToUser(t, { userEmail, userName }));
+    return tasks.filter((t) => isTaskAssignedToUser(t, { userEmail, userName }));
   }, [tasks, userName, userEmail]);
 
-  const handleEditTask = (task: any) => {
-    setEditFormData({ ...task });
+  const handleEditTask = (task: DashboardTask) => {
+    setEditFormData(task as EditableTask);
     setIsEditOpen(true);
   };
 
@@ -86,23 +117,22 @@ export function PersonalDashboard() {
     const now = new Date().toISOString();
 
     if (isCommunityTask && setCommunityWorkspace) {
-      setCommunityWorkspace((prev: any) => ({
+      setCommunityWorkspace((prev: CommunityWorkspace) => ({
         ...prev,
         updatedAt: now,
-        countries: prev.countries.map((country: any) => {
+        countries: prev.countries.map((country) => {
           if (`community-${country.id}` !== editFormData.campaignId) {
             return country;
           }
           return {
             ...country,
-            tasks: country.tasks.map((task: any) => {
+            tasks: country.tasks.map((task: CampaignTeamTask) => {
               if (task.id !== editFormData.id) {
                 return task;
               }
-              const endDateTime = editFormData.status === 'Done' && task.status !== 'Done' ? now : editFormData.status !== 'Done' ? undefined : task.endDateTime;
               return {
                 ...task,
-                status: editFormData.status,
+                status: editFormData.status ?? task.status,
                 priority: editFormData.priority || task.priority,
                 notes: editFormData.notes ?? task.notes,
                 metricTarget: editFormData.metricTarget !== undefined ? editFormData.metricTarget : task.metricTarget,
@@ -116,15 +146,14 @@ export function PersonalDashboard() {
                 nextStep: editFormData.nextStep !== undefined ? editFormData.nextStep : task.nextStep,
                 finalOutput: editFormData.finalOutput !== undefined ? editFormData.finalOutput : task.finalOutput,
                 updatedAt: now,
-                endDateTime,
               };
             }),
           };
         }),
       }));
     } else if (isOperationalTask && setOpsCampaigns) {
-      setOpsCampaigns((prev: any[]) =>
-        prev.map((campaign: any) => {
+      setOpsCampaigns((prev: OpsCampaign[]) =>
+        prev.map((campaign) => {
           if (campaign.id !== editFormData.campaignId) {
             return campaign;
           }
@@ -132,21 +161,21 @@ export function PersonalDashboard() {
           return {
             ...campaign,
             updatedAt: now,
-            teamPlans: campaign.teamPlans.map((plan: any) => {
+            teamPlans: campaign.teamPlans.map((plan) => {
               if (plan.teamId !== editFormData.teamId) {
                 return plan;
               }
 
               return {
                 ...plan,
-                tasks: plan.tasks.map((task: any) => {
+                tasks: plan.tasks.map((task) => {
                   if (task.id !== editFormData.id) {
                     return task;
                   }
 
                   return {
                     ...task,
-                    status: editFormData.status,
+                    status: editFormData.status ?? task.status,
                     priority: editFormData.priority || task.priority,
                     notes: editFormData.notes ?? task.notes,
                     metricTarget: editFormData.metricTarget !== undefined ? editFormData.metricTarget : task.metricTarget,
@@ -168,8 +197,8 @@ export function PersonalDashboard() {
         }),
       );
     } else if (setTasks) {
-      setTasks((prev: any[]) =>
-        prev.map((t: any) => {
+      setTasks((prev: DashboardTask[]) =>
+        prev.map((t) => {
           if (t.id === editFormData.id) {
             const endDateTime =
               editFormData.status === 'Done' && t.status !== 'Done'
@@ -192,13 +221,13 @@ export function PersonalDashboard() {
   };
 
   const handleXlsxImport = useCallback(
-    (importedTasks: any[]) => {
-      const tagged = importedTasks.map((t: any) => ({
+    (importedTasks: DashboardTask[]) => {
+      const tagged = importedTasks.map((t) => ({
         ...t,
         assignedTo: t.assignedTo || userName,
       }));
       if (setTasks) {
-        setTasks((prev: any[]) => [...prev, ...tagged]);
+        setTasks((prev: DashboardTask[]) => [...prev, ...tagged]);
       }
     },
     [setTasks, userName]
@@ -224,7 +253,7 @@ export function PersonalDashboard() {
     };
 
     if (setTasks) {
-      setTasks((prev: any[]) => [...prev, task]);
+      setTasks((prev: DashboardTask[]) => [...prev, task]);
     }
 
     setNewTask({ ...emptyTask });
@@ -630,7 +659,7 @@ export function PersonalDashboard() {
                         key={status}
                         type="button"
                         onClick={() =>
-                          setEditFormData({ ...editFormData, status })
+                          setEditFormData({ ...editFormData, status: status as TaskStatus })
                         }
                         className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-xs font-black uppercase tracking-tight transition-all ${
                           isActive

@@ -38,6 +38,7 @@ let alertPublisherChannel: RealtimeChannel | null = null;
 let alertPublisherPromise: Promise<RealtimeChannel> | null = null;
 let memoryOrigin: string | null = null;
 let audioContext: AudioContext | null = null;
+let audioUnlockInitialized = false;
 
 function createOrigin() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -83,13 +84,31 @@ async function ensureAlertPublisherChannel() {
 
   alertPublisherPromise = new Promise<RealtimeChannel>((resolve, reject) => {
     const channel = supabase.channel(`${WORKSPACE_ALERT_CHANNEL}:publisher`);
-    const timeoutId = window.setTimeout(() => {
+    let settled = false;
+
+    const cleanupFailure = (error: Error) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      window.clearTimeout(timeoutId);
       alertPublisherPromise = null;
-      reject(new Error('Timed out connecting to workspace alerts'));
+      void supabase.removeChannel(channel);
+      reject(error);
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      cleanupFailure(new Error('Timed out connecting to workspace alerts'));
     }, 5000);
 
     channel.subscribe((status) => {
+      if (settled) {
+        return;
+      }
+
       if (status === 'SUBSCRIBED') {
+        settled = true;
         window.clearTimeout(timeoutId);
         alertPublisherChannel = channel;
         alertPublisherPromise = null;
@@ -98,14 +117,54 @@ async function ensureAlertPublisherChannel() {
       }
 
       if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-        window.clearTimeout(timeoutId);
-        alertPublisherPromise = null;
-        reject(new Error(`Workspace alert channel failed: ${status}`));
+        cleanupFailure(new Error(`Workspace alert channel failed: ${status}`));
       }
     });
   });
 
   return alertPublisherPromise;
+}
+
+async function ensureAudioContextReady() {
+  const ContextConstructor =
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+  if (!ContextConstructor) {
+    return null;
+  }
+
+  audioContext = audioContext || new ContextConstructor();
+
+  if (audioContext.state === 'suspended') {
+    await audioContext.resume();
+  }
+
+  return audioContext;
+}
+
+export function initializeWorkspaceAlertAudio() {
+  if (typeof window === 'undefined' || audioUnlockInitialized) {
+    return;
+  }
+
+  audioUnlockInitialized = true;
+
+  const unlockAudio = () => {
+    void ensureAudioContextReady()
+      .catch(() => undefined)
+      .finally(() => {
+        if (audioContext?.state === 'running') {
+          window.removeEventListener('pointerdown', unlockAudio);
+          window.removeEventListener('keydown', unlockAudio);
+          window.removeEventListener('touchstart', unlockAudio);
+        }
+      });
+  };
+
+  window.addEventListener('pointerdown', unlockAudio, { passive: true });
+  window.addEventListener('keydown', unlockAudio);
+  window.addEventListener('touchstart', unlockAudio, { passive: true });
 }
 
 export async function publishWorkspaceAlert(
@@ -207,21 +266,15 @@ export function sendDesktopWorkspaceAlert(alert: WorkspaceAlertPayload) {
 export async function playWorkspaceAlertSound() {
   if (typeof window === 'undefined') return;
 
-  const ContextConstructor =
-    window.AudioContext ||
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-  if (!ContextConstructor) return;
-
   try {
-    audioContext = audioContext || new ContextConstructor();
-    if (audioContext.state === 'suspended') {
-      await audioContext.resume();
+    const context = await ensureAudioContextReady();
+    if (!context) {
+      return;
     }
 
-    const startAt = audioContext.currentTime;
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    const startAt = context.currentTime;
+    const oscillator = context.createOscillator();
+    const gainNode = context.createGain();
 
     oscillator.type = 'triangle';
     oscillator.frequency.setValueAtTime(880, startAt);
@@ -232,7 +285,11 @@ export async function playWorkspaceAlertSound() {
     gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.18);
 
     oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+    gainNode.connect(context.destination);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gainNode.disconnect();
+    };
 
     oscillator.start(startAt);
     oscillator.stop(startAt + 0.2);

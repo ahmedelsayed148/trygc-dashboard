@@ -1,7 +1,9 @@
 import type { CampaignTeamTask } from './operations';
 
+type AssignmentNotification = ReturnType<typeof createAssignmentNotification>;
+
 interface AssignmentNotificationParams {
-  currentNotifications: any[];
+  currentNotifications: NonNullable<AssignmentNotification>[];
   previousTask?: CampaignTeamTask;
   nextTask: CampaignTeamTask;
   campaignId: string;

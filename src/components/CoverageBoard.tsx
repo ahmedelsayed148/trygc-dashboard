@@ -84,6 +84,11 @@ const sampleCoverageRecords = [
   }),
 ];
 
+const EMPTY_COVERAGE_RECORDS: CoverageRecord[] = [];
+const NOOP_SET_COVERAGE_RECORDS: React.Dispatch<
+  React.SetStateAction<CoverageRecord[]>
+> = () => undefined;
+
 export function CoverageBoard() {
   return (
     <FeatureGate featureId="coverage">
@@ -94,8 +99,11 @@ export function CoverageBoard() {
 
 function CoverageBoardContent() {
   const ctx = useContext(AppContext);
-  const coverageRecords = normalizeCoverageRecords(ctx?.coverageRecords || []);
-  const setCoverageRecords = ctx?.setCoverageRecords || (() => {});
+  const rawCoverageRecords = useMemo(() => ctx?.coverageRecords ?? EMPTY_COVERAGE_RECORDS, [ctx?.coverageRecords]);
+  const coverageRecords = useMemo(() => normalizeCoverageRecords(rawCoverageRecords), [rawCoverageRecords]);
+  const setCoverageRecords =
+    (ctx?.setCoverageRecords as React.Dispatch<React.SetStateAction<CoverageRecord[]>> | undefined) ??
+    NOOP_SET_COVERAGE_RECORDS;
 
   const [search, setSearch] = useState("");
   const [taskFilter, setTaskFilter] = useState("All");

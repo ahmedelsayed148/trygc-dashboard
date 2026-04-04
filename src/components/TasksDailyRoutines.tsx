@@ -107,10 +107,10 @@ export function TasksDailyRoutines() {
   const rawDisabledTeams = ctx?.disabledTeams;
   const opsCampaigns = useMemo(() => normalizeOpsCampaigns(rawOpsCampaigns || []), [rawOpsCampaigns]);
   const teamMembers: Array<{ email: string; name: string; teamName?: string }> = rawTeamMembers ?? [];
-  const pmoTasks: PMOTask[] = rawPmoTasks ?? [];
+  const pmoTasks = useMemo(() => (rawPmoTasks ?? []) as PMOTask[], [rawPmoTasks]);
   const setPmoTasks = ctx?.setStandaloneTasks || (() => {});
   const userEmail = ctx?.userEmail || "";
-  const disabledTeams: string[] = rawDisabledTeams ?? [];
+  const disabledTeams = useMemo(() => (rawDisabledTeams ?? []) as string[], [rawDisabledTeams]);
   const enabledTeams = useMemo(() => OPERATIONS_TEAMS.filter((team) => !disabledTeams.includes(team.id)), [disabledTeams]);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("All");

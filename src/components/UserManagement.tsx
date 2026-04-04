@@ -2,6 +2,7 @@ import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { AppContext } from './Root';
 import { projectId, publicAnonKey } from '../../utils/supabase/info';
 import { ALWAYS_AVAILABLE_FEATURES } from '../lib/navigation';
+import type { User as AppUser } from '../types';
 import {
   Users,
   Shield,
@@ -57,6 +58,32 @@ interface FeatureDefinition {
   adminOnly?: boolean;
 }
 
+interface ManagedUser {
+  addedAt?: string;
+  email: string;
+  features: string[];
+  name?: string;
+  role: 'admin' | 'member';
+  teamName?: string;
+}
+
+interface AdminConfig {
+  adminEmails: string[];
+  teamMembers: ManagedUser[];
+}
+
+function toAppUsers(users: ManagedUser[]): AppUser[] {
+  return users.map((user, index) => ({
+    id: `managed-${index}-${user.email}`,
+    email: user.email,
+    name: user.name || user.email,
+    role: user.role,
+    features: user.features,
+    demoCompleted: true,
+    createdAt: user.addedAt || new Date().toISOString(),
+  }));
+}
+
 const ALL_FEATURES: FeatureDefinition[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, description: 'Main overview dashboard' },
   { id: 'coverage', label: 'Coverage', icon: ClipboardList, description: 'Coverage workbook tracking and campaign queue' },
@@ -87,7 +114,7 @@ export function UserManagement() {
   const isAdmin = ctx?.isAdmin || false;
   const setTeamMembers = ctx?.setTeamMembers;
 
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<ManagedUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -143,9 +170,11 @@ export function UserManagement() {
       if (response.ok) {
         const data = await response.json();
         const members = data.config?.teamMembers || [];
-        const enriched = members.map((m: any) => ({
+        const enriched = members.map((m: Partial<ManagedUser>) => ({
           ...m,
+          email: m.email || '',
           teamName: m.teamName || '',
+          role: m.role === 'admin' ? 'admin' : 'member',
           features: m.features || (m.role === 'admin' ? DEFAULT_ADMIN_FEATURES : DEFAULT_MEMBER_FEATURES),
         }));
         setUsers(enriched);
@@ -162,16 +191,16 @@ export function UserManagement() {
     if (isAdmin) fetchUsers();
   }, [isAdmin, fetchUsers]);
 
-  const saveUsers = async (updatedUsers: any[]) => {
+  const saveUsers = async (updatedUsers: ManagedUser[]) => {
     try {
       const configRes = await fetch(
         `https://${projectId}.supabase.co/functions/v1/make-server-b626472b/admin-config`,
         { headers: { Authorization: `Bearer ${publicAnonKey}` } }
       );
       const configData = await configRes.json();
-      const config = configData.config || { adminEmails: [], teamMembers: [] };
+      const config: AdminConfig = configData.config || { adminEmails: [], teamMembers: [] };
 
-      config.adminEmails = updatedUsers.filter((u: any) => u.role === 'admin').map((u: any) => u.email);
+      config.adminEmails = updatedUsers.filter((u) => u.role === 'admin').map((u) => u.email);
       config.teamMembers = updatedUsers;
 
       await fetch(
@@ -186,7 +215,7 @@ export function UserManagement() {
         }
       );
 
-      if (setTeamMembers) setTeamMembers(updatedUsers);
+      if (setTeamMembers) setTeamMembers(toAppUsers(updatedUsers));
     } catch (error) {
       console.error('Error saving users:', error);
       throw error;

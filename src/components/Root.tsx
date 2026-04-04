@@ -53,6 +53,7 @@ import {
 } from '../lib/workspacePersistence';
 import { useRealtimeWorkspaceAlerts } from '../hooks/use-realtime-workspace-alerts';
 import { createSuccessAlertPayload, publishWorkspaceAlert } from '../lib/realtimeAlerts';
+import { buildLatestNotificationFeed } from '../lib/notificationFeed';
 import type { User as AppUser } from '../types';
 
 type WorkspaceRecord = {
@@ -1111,19 +1112,15 @@ export function Root() {
   );
 
   const unreadCount = useMemo(() => {
-    let count = 0;
-    count += successLogs.slice(0, 3).length;
-    count += operationalTasks.filter((task) => {
-      if (task.status === 'Done' || !task.startDateTime) return false;
-      const aging = (Date.now() - new Date(task.startDateTime).getTime()) / (1000 * 60 * 60);
-      return aging > (task.slaHrs || 0);
-    }).slice(0, 3).length;
-    count += operationalTasks.filter((task) => task.status === 'Blocked').slice(0, 2).length;
-    count += taskNotifications
-      .filter((notification: NotificationRecord) => String(notification.assignedTo || '').toLowerCase() === userEmail.toLowerCase())
-      .slice(0, 5).length;
+    const count = buildLatestNotificationFeed({
+      organizedUpdates,
+      successLogs,
+      taskNotifications,
+      userEmail,
+    }).length;
+
     return Math.min(count, 99);
-  }, [operationalTasks, successLogs, taskNotifications, userEmail]);
+  }, [organizedUpdates, successLogs, taskNotifications, userEmail]);
 
   const openCommandPalette = useCallback(() => {
     setIsCommandPaletteOpen(true);
